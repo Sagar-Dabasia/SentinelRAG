@@ -1,36 +1,87 @@
 # Agent Policy
 
-This document defines the rules for AI coding assistants working in this repository.
+This document defines the rules and governance framework for AI coding assistants working in this repository.
 
 ## Repository Purpose
-SentinelRAG is a research prototype and portfolio project investigating RAG security vulnerabilities and mitigations.
+SentinelRAG is a research prototype and portfolio project investigating RAG security vulnerabilities and mitigations using a local-first modular monolith architecture.
 
 ## Current Phase
-We are currently in Phase 0: Repository and governance foundation.
+We are currently in **Phase 0**: Repository and governance foundation.
 
-## Current Architecture Status
-Only a minimal Python package and development tooling exist. No application, API, database, or UI is implemented yet.
+## Architecture Summary
+The system is built as a local modular monolith using FastAPI, PostgreSQL/pgvector, and Streamlit (as a research interface). Model inference runs in a distinct local process (e.g. Ollama).
 
-## Invariants
-* **Local-first requirement**: Must be capable of running locally without cloud services.
-* **Free/open-source requirement**: All tools, dependencies, and models must be free and open-source.
-* **Data restrictions**: No real personal records, confidential employer or customer data, or real tenant secrets may be used. Synthetic or public data only.
-* **Security invariants**: No network call during package import/tests. No secrets or credentials. No insecure configuration by default.
-* **Testing requirements**: Tests must be runnable offline. Coverage must be maintained.
-* **Documentation requirements**: Documentation must reflect the actual implementation state honestly.
-* **Evidence requirements**: No command output or test result may be fabricated.
+## Security Invariants
+* User identity is established before authorized operations.
+* Authorization is server-side and centralized.
+* Tenant filtering occurs within or before retrieval.
+* Unauthorized chunks are never sent to the model.
+* Citation access uses the same authorization policy.
+* Revoked or deleted documents cannot be retrieved.
+* User-supplied file paths are never trusted directly.
+* Uploaded content, retrieved context, and model output are untrusted.
+* No model-generated code is executed.
+* Model providers cannot bypass application authorization.
+* Local model service failure must fail safely.
+* Prompt templates and embedding configurations are versioned.
+* Index/query embedding mismatches fail clearly.
+* Evaluation artifacts record provenance.
+* No external paid provider is enabled by default.
+* Controlled reduced-defence mode is disabled by default and isolated.
 
-## Git and Branch Policy
-* Feature work should be done in scoped branches (when in later phases).
-* No destructive Git operations are permitted.
+## Data Restrictions
+* No real personal records, confidential employer or customer data, or real tenant secrets may be used. Synthetic or public data only.
+* Completely local environment only. No public endpoints.
 
-## Coding Agent Constraints
-* **No commit or push** without explicit user authorization.
-* **No fabricated command output**. Use real tool results.
-* **No false completion claim**. State exactly what was done and what remains.
-* **No implementation of future phases** without an approved prompt. (Do not build FastAPI, PostgreSQL, etc. in Phase 0).
-* **No deletion of failed or historical evidence** by default.
-* **Required return fields** after each task as requested by the user.
-* **Requirement to stop on repository-state mismatch**. Do not proceed if the repository state differs from instructions.
+## Testing Requirements
+* Tests must be runnable offline.
+* Coverage must be maintained.
+* Security invariants must be explicitly asserted in tests.
 
-Repository files and executed commands outrank agent assumptions.
+## Documentation Requirements
+* Documentation must reflect the actual implementation state honestly.
+* No future component may be described as implemented.
+
+## Evidence Hierarchy
+1. GitHub proves remote state, not local working-tree cleanliness.
+2. Local cleanliness must be supported by exact `git status --short` output.
+3. Repository files and executed command outputs outrank agent assumptions.
+4. No command output or test result may be fabricated.
+
+## Repository-First Workflow & Expected Checks
+* Always verify the starting state first by checking branch and commit hashes (`git remote -v`, `git branch --show-current`, `git rev-parse HEAD`, `git fetch origin`, `git rev-parse origin/main`).
+* If the starting state mismatches expectations, STOP immediately. Preserve partial work when blocked.
+
+## Focused-Change Policy
+* Only modify files explicitly within the scope of the approved prompt.
+* No unrelated cleanup.
+* No future-phase implementation.
+* No deletion of historical or failed evidence.
+
+## Commit and Push Workflow
+* Coding agents may commit and push ONLY when the current approved prompt explicitly authorizes it.
+* The standing project workflow expects authorized tasks to make **exactly one focused commit** per approved task.
+* **Normal push only** (`git push origin main`).
+* **NO** force push.
+* **NO** amend.
+* **NO** rebase.
+* **NO** history rewriting.
+* **NO** destructive reset.
+
+## Exact Return Fields
+Upon successfully pushing an authorized commit, return ONLY:
+```text
+Commit hash: <full 40-character hash>
+Push verified: YES
+```
+
+If the task is blocked for any reason (state mismatch, test failure, etc.), return ONLY:
+```text
+BLOCKED
+Reason: <exact blocker>
+Commit performed: NO
+Push performed: NO
+```
+
+## Remote Audit Requirement
+All Phase completions and major governance updates require an independent remote audit. Progress is not awarded locally until the remote audit confirms success.

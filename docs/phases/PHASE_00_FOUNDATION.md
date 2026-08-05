@@ -179,6 +179,55 @@ Independent verification provided by the repository auditor confirms that OWASP 
 *(All commands passed successfully. The Node.js warning remains as a deferred maintenance risk in RSK-021)*
 
 ## Status (Third Remediation)
-* **Commit hash:** PENDING
-* **Push status:** PENDING
-* **Remote audit:** PENDING EXTERNAL AUDIT
+* **Commit hash:** 7d1129cc0f93f593c76c3e8d8e102170763c56e3
+* **Push status:** YES
+* **Remote audit:** FAIL
+
+## Independent Remote Audit Findings (Fourth Audit)
+The third remediation commit (7d1129cc0f93f593c76c3e8d8e102170763c56e3) was independently audited.
+* **CI result:** success
+* **Audit verdict:** FAIL
+
+**Findings:**
+* **Architecture-baseline finding:** The architecture lacked actionable separation of implemented vs PLANNED components, defined data flows, and security-critical placement rules.
+* **Evaluation-methodology finding:** The evaluation plan lacked a reproducible research protocol, definitive metrics with numerators/denominators, a dataset schema, and a controlled baseline (LAB_ONLY) definition.
+* **Threat-phase/status findings:** Some threat mitigations incorrectly assigned every control to a single phase rather than splitting them logically, and foundation controls were not listed individually with distinct statuses.
+* **Agent-governance finding:** The AGENTS.md file did not contain the comprehensive standing project workflow, evidence hierarchy, and commit/push policies required to constrain future automated execution.
+* **Project-status finding:** The project status document missed fields for candidate commit state, completed gates, and open risks.
+
+## Fourth Remediation Evidence
+
+### Exact Files Changed
+* AGENTS.md
+* docs/ARCHITECTURE.md
+* docs/EVALUATION_PLAN.md
+* docs/THREAT_MODEL.md
+* docs/PROJECT_STATUS.md
+* docs/phases/PHASE_00_FOUNDATION.md
+
+### Exact Verification Commands and Results
+* uv lock --check (Exit code: 0)
+* uv sync --locked --all-groups (Exit code: 0)
+* uv run ruff format --check . (Exit code: 0)
+* uv run ruff check . (Exit code: 0)
+* uv run mypy src tests (Exit code: 0)
+* uv run pytest -q (Exit code: 0)
+* uv run pytest -q --cov=sentinelrag --cov-report=term-missing --cov-report=xml --cov-fail-under=80 (Exit code: 0)
+* uv run pip-audit (Exit code: 0)
+* uv run pre-commit run --all-files (Exit code: 0)
+* git diff --check (Exit code: 0)
+* git diff --stat (Exit code: 0)
+* git status --short (Exit code: 0)
+
+### Detailed Metrics
+* **Test totals:** 3 passed
+* **Coverage:** 100.00%
+* **Dependency audit:** No known vulnerabilities found
+* **Pre-commit result:** All checks passed (Exit code: 0)
+* **Secret-scan result through pre-commit:** Passed (no secrets detected)
+* **Remaining Node.js warning:** Preserved as a known deferred maintenance risk in RSK-021.
+
+## Status (Fourth Remediation)
+* **Candidate commit:** PENDING
+* **Push:** PENDING
+* **External audit:** PENDING

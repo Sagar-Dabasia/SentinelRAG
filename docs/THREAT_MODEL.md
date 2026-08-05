@@ -111,10 +111,13 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * **Entry point:** Chat interface
 * **Attack path:** LLM inappropriately discloses sensitive data contained within its legitimate retrieval context.
 * **Impact:** Sensitive information leakage.
-* **Controls:** Layered mitigations, Retrieval filtering, Citation authorization
+* **Controls by Phase:**
+    * **Phase 2:** Authorization, retrieval filtering, citation authorization.
+    * **Phase 4:** Leakage and extraction measurement.
+    * **Phase 5:** Layered generation/output mitigations and comparative tests.
 * **Control status:** PLANNED
 * **Residual risk:** The model failing to respect confidentiality constraints.
-* **Implementation phase:** Phase 5
+* **Implementation phase:** Phase 2, Phase 4, Phase 5 (Iterative)
 * **Testing phase:** Phase 4
 * **Framework mapping:** LLM02:2026 — Sensitive Information Disclosure
 * **Mapping rationale:** The model inappropriately outputs sensitive data it was given access to.
@@ -143,21 +146,26 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * **Entry point:** GitHub repository, CI
 * **Attack path:** Attacker compromises build dependencies or developer commits secrets/insecure defaults.
 * **Impact:** Codebase compromise, secret exposure.
-* **Controls:** Dependency lock, CI dependency audit, Secret scanning, Pinned actions, Governance documentation
-* **Control status:** IMPLEMENTED and TESTED
+* **Controls:**
+    * Dependency lock — IMPLEMENTED
+    * Pinned actions — IMPLEMENTED
+    * Dependency audit in CI — TESTED
+    * Secret scanning — TESTED
+    * Safe environment example — IMPLEMENTED
+    * Complete application secure defaults — PLANNED
 * **Residual risk:** Zero-days in trusted tools.
-* **Implementation phase:** Phase 0
+* **Implementation phase:** Phase 0 (Foundation)
 * **Testing phase:** Phase 0
-* **Framework mapping:** LLM04:2026 — Supply Chain
+* **Framework mapping:** LLM04:2026 — Supply Chain (and conventional secret exposure)
 * **Mapping rationale:** Affects foundational dependencies and configuration.
 
-### TR-07: Advanced Supply Chain & Runtime Risks
+### TR-07: Advanced Supply Chain & Infrastructure Integrity
 * **Threat ID:** TR-07
-* **Threat category:** Dependency compromise, Log leakage, Insecure default configuration
+* **Threat category:** Dependency compromise, Container vulnerability, Insecure defaults
 * **Relevant assets:** Container images, Runtime environment
 * **Actor:** Compromised dependency, Misconfigured administrator
 * **Entry point:** Container boundary, Runtime
-* **Attack path:** Compromised container base image, vulnerable SBOM packages, or leaked logs in production.
+* **Attack path:** Compromised container base image, vulnerable SBOM packages in production.
 * **Impact:** Runtime compromise.
 * **Controls:** Containers, SBOM, Container scanning, Runtime privilege reduction, Advanced supply-chain hardening
 * **Control status:** PLANNED
@@ -165,7 +173,23 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * **Implementation phase:** Phase 7
 * **Testing phase:** Phase 7
 * **Framework mapping:** LLM04:2026 — Supply Chain
-* **Mapping rationale:** Production-level supply chain and runtime risks.
+* **Mapping rationale:** Production-level container and dependency integrity map to supply chain risk.
+
+### TR-07b: Log Leakage
+* **Threat ID:** TR-07b
+* **Threat category:** Log leakage
+* **Relevant assets:** Logs, Audit trails
+* **Actor:** Misconfigured administrator
+* **Entry point:** Runtime environment
+* **Attack path:** Sensitive data or keys are written to application logs and leaked.
+* **Impact:** Disclosure of sensitive data.
+* **Controls:** Log sanitization, safe defaults.
+* **Control status:** PLANNED
+* **Residual risk:** Developer error bypassing sanitization.
+* **Implementation phase:** Phase 1
+* **Testing phase:** Phase 4
+* **Framework mapping:** Conventional sensitive-information and logging risk
+* **Mapping rationale:** Log leakage is treated as a conventional risk, distinct from LLM supply chain.
 
 ### TR-08: Retrieval Poisoning
 * **Threat ID:** TR-08
@@ -223,11 +247,14 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * **Entry point:** Chat interface
 * **Attack path:** Model naturally hallucinates, outputs misleading information, or provides unsupported answers.
 * **Impact:** User relies on incorrect information.
-* **Controls:** Citations, Comparative defence experiments, Utility and latency trade-offs
+* **Controls by Phase:**
+    * **Phase 1:** Evidence citations, abstention and basic answer-support behaviour.
+    * **Phase 3:** Utility/citation metrics.
+    * **Phase 5:** Comparative mitigations.
 * **Control status:** PLANNED
 * **Residual risk:** Inherent LLM hallucination rates.
-* **Implementation phase:** Phase 5
-* **Testing phase:** Phase 5
+* **Implementation phase:** Phase 1, Phase 3, Phase 5
+* **Testing phase:** Phase 1 (Testing begins before Phase 5)
 * **Framework mapping:** LLM07:2026 — Misinformation
 * **Mapping rationale:** Unsupported, hallucinated, or misleading model answers.
 
@@ -279,21 +306,21 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * **Framework mapping:** LLM04:2026 — Supply Chain
 * **Mapping rationale:** Compromised models, embedding models, or datasets map to Supply Chain risks.
 
-### TR-15: Evaluation Integrity
+### TR-15: Evaluation Integrity & Accidental Contamination
 * **Threat ID:** TR-15
 * **Threat category:** Evaluation-data contamination, LLM-as-judge bias
 * **Relevant assets:** Evaluator metrics, Evaluation results
-* **Actor:** Normal authenticated user
+* **Actor:** Normal authenticated user (Researcher)
 * **Entry point:** Red-team harness
-* **Attack path:** Evaluation datasets overlap with training data, or LLM judges exhibit systemic bias.
+* **Attack path:** Evaluation datasets accidentally overlap with training data, or LLM judges exhibit systemic bias.
 * **Impact:** Overestimation of safety, compromised metrics.
 * **Controls:** Dataset manifests, Evaluation contamination controls, Deterministic metrics, LLM-judge calibration and bias analysis, Reproducible experiment metadata
 * **Control status:** PLANNED
 * **Residual risk:** Inherent bias in LLM evaluators.
 * **Implementation phase:** Phase 3
 * **Testing phase:** Phase 3
-* **Framework mapping:** LLM05:2026 — Data and Model Poisoning (and conventional research validity)
-* **Mapping rationale:** Accidental evaluation contamination is a research-validity risk and data poisoning concern.
+* **Framework mapping:** Conventional research-validity risk
+* **Mapping rationale:** Accidental overlap and bias are research-validity risks. Intentional manipulation or poisoning maps to LLM05:2026 (covered under TR-08).
 
 ## Assumptions
 * The environment is completely local and isolated.
@@ -301,7 +328,14 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 ## Ethical Boundaries
 * No testing against real people, proprietary systems, or non-synthetic data.
 
-## Framework Mapping
+## Framework Mapping Review
+* **Framework title:** OWASP GenAI LLM Top 10
+* **Edition:** 2026
+* **Publication date:** 2026-08-03
+* **Review date:** 2026-08-05
+* **Official source:** https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
+* **Note:** The mappings contained within this document represent project-specific interpretations of the framework, and do not constitute an official OWASP certification.
+
 (Framework facts supplied by independent repository auditor on 2026-08-05)
 * [OWASP GenAI LLM Top 10 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) (Released 2026-08-03)
 * Official companion repository: [GenAI-LLM-Top10](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10)
