@@ -1,15 +1,11 @@
-# ADR 0009: Strict Loopback-Only Access
+# ADR-0009: Strict Loopback-Only Access
 
-## Status
-Accepted
-
-## Context
-SentinelRAG is a local-first application dealing with sensitive, highly-privileged RAG documents. The underlying LLM providers (Ollama, LM Studio) must not be exposed to the public internet, nor should SentinelRAG attempt to connect to external unverified IPs to prevent SSRF or external exfiltration.
-
-## Decision
-We enforce a strict loopback-only rule for provider endpoints in the `SentinelSettings` configuration. Only `127.0.0.1`, `::1`, `[::1]`, and `localhost` are accepted.
-
-## Consequences
-- **Positive:** Reduced attack surface by enforcing local communication.
-- **Positive:** Prevents accidental or malicious redirection to external endpoints.
-- **Negative:** Limits deployment flexibility (e.g. running the LLM provider on a separate network machine is not supported by default, unless configured via a local proxy).
+* **Status:** Proposed — pending independent Phase 1B audit
+* **Date:** 2026-08-05
+* **Context:** Phase 1B establishes the HTTP client for connecting to local models. Allowing connections to any endpoint could introduce network spoofing, Server-Side Request Forgery (SSRF), or accidental exposure to untrusted public APIs.
+* **Decision:** We mandate strict loopback-only validation (`127.0.0.1`, `::1`, `localhost`) for model endpoints within `SentinelSettings`. Connections to LAN addresses, `0.0.0.0`, or public IPs are rejected during configuration initialization.
+* **Evidence:** `SentinelSettings` validations in `sentinelrag.config.settings` and passing tests in `test_settings.py`.
+* **Alternatives:** Validating IPs during HTTP request time. Rejected because early failure during configuration is safer and provides clearer errors.
+* **Security consequences:** Prevents the application from being tricked into calling external endpoints or acting as a proxy.
+* **Operational consequences:** Requires local deployment of the models (or SSH tunneling bounded to localhost).
+* **Revisit conditions:** Revisit if/when the architecture mandates dedicated model servers on isolated LAN subnets.

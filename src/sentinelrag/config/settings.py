@@ -1,3 +1,4 @@
+import ipaddress
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -23,10 +24,10 @@ class SentinelSettings(BaseSettings):
         env_prefix="SENTINELRAG_",
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
+        extra="forbid",
     )
 
-    environment: Literal["dev", "test", "prod"] = "dev"
+    environment: Literal["development", "test", "production"] = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     provider: ProviderKind = ProviderKind.DISABLED
@@ -67,20 +68,32 @@ class SentinelSettings(BaseSettings):
                     f"Endpoint is required when provider is {self.provider.value}."
                 )
             if self.model_identifier is None:
-                raise ValueError(
-                    f"Model identifier is required when provider is {self.provider.value}."  # noqa: E501
+                msg = (
+                    "Model identifier is required when provider is "
+                    f"{self.provider.value}."
                 )
+                raise ValueError(msg)
 
             # Validate endpoint host and path
             host = self.endpoint.host
             if not host:
                 raise ValueError("Endpoint host is missing.")
 
-            # Only loopback allowed.
-            if host not in ("127.0.0.1", "::1", "[::1]", "localhost"):
-                raise ValueError(
-                    f"Only loopback hosts are allowed. Rejected host: {host}"
-                )
+            # IPv6 cleanup for pydantic
+            raw_host = host.strip("[]")
+
+            if raw_host != "localhost":
+                try:
+                    ip = ipaddress.ip_address(raw_host)
+                    if not ip.is_loopback:
+                        raise ValueError(
+                            f"Only loopback hosts are allowed. Rejected host: {host}"
+                        )
+                except ValueError as e:
+                    msg = (
+                        f"Only loopback hosts are allowed. Invalid host format: {host}"
+                    )
+                    raise ValueError(msg) from e
 
             if self.endpoint.username or self.endpoint.password:
                 raise ValueError("Credentials in URL are rejected.")

@@ -10,6 +10,7 @@ from sentinelrag.models.contracts import (
     ProviderAvailability,
     ProviderClosedError,
     ProviderProtocolError,
+    ResponseTooLargeError,
 )
 from sentinelrag.models.http import create_http_client, execute_request_with_retries
 from sentinelrag.models.provider import ModelProvider
@@ -31,6 +32,12 @@ class LMStudioAdapter(ModelProvider):
 
     async def generate(self, request: GenerationRequest) -> NormalizedResponse:
         self._ensure_open()
+
+        if request.max_tokens > self._settings.max_requested_output_tokens:
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO,
+                "Requested tokens exceed the maximum allowed output tokens.",
+            )
 
         messages = [
             {"role": m.role.value, "content": m.content} for m in request.messages
@@ -72,6 +79,12 @@ class LMStudioAdapter(ModelProvider):
                 ProviderKind.LM_STUDIO, "Expected JSON object in response."
             )
 
+        model = data.get("model")
+        if not model or not isinstance(model, str):
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO, "Missing or invalid 'model' in response."
+            )
+
         choices = data.get("choices")
         if not choices or not isinstance(choices, list) or len(choices) == 0:
             raise ProviderProtocolError(
@@ -90,32 +103,67 @@ class LMStudioAdapter(ModelProvider):
                 ProviderKind.LM_STUDIO, "Missing or invalid 'message' in first choice."
             )
 
+        role = message.get("role")
+        if role != "assistant":
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO, "Message role is not 'assistant'."
+            )
+
         content = message.get("content")
-        if not isinstance(content, str):
+        if not isinstance(content, str) or not content:
             raise ProviderProtocolError(
                 ProviderKind.LM_STUDIO,
-                "Missing or invalid 'message.content' in response.",
+                "Missing, empty, or invalid 'message.content' in response.",
             )
+
+        finish_reason = first_choice.get("finish_reason")
+        if finish_reason is not None and not isinstance(finish_reason, str):
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO, "Invalid 'finish_reason' in response."
+            )
+
+        usage = data.get("usage")
+        prompt_tokens = None
+        completion_tokens = None
+        if usage is not None:
+            if not isinstance(usage, dict):
+                raise ProviderProtocolError(
+                    ProviderKind.LM_STUDIO, "Invalid 'usage' in response."
+                )
+            prompt_tokens = usage.get("prompt_tokens")
+            if prompt_tokens is not None and (
+                not isinstance(prompt_tokens, int) or prompt_tokens < 0
+            ):
+                raise ProviderProtocolError(
+                    ProviderKind.LM_STUDIO, "Invalid 'prompt_tokens' in response."
+                )
+            completion_tokens = usage.get("completion_tokens")
+            if completion_tokens is not None and (
+                not isinstance(completion_tokens, int) or completion_tokens < 0
+            ):
+                raise ProviderProtocolError(
+                    ProviderKind.LM_STUDIO, "Invalid 'completion_tokens' in response."
+                )
 
         if len(content) > self._settings.max_response_characters:
-            raise ProviderProtocolError(
+            raise ResponseTooLargeError(
                 ProviderKind.LM_STUDIO,
-                f"Generated content exceeds maximum characters ({len(content)} > {self._settings.max_response_characters}).",  # noqa: E501
+                "Generated content exceeds maximum characters limit.",
             )
 
-        usage = data.get("usage", {})
-        if not isinstance(usage, dict):
-            usage = {}
-
-        model_ident = str(data.get("model", self._settings.model_identifier))
-        return NormalizedResponse(
-            provider_kind=ProviderKind.LM_STUDIO,
-            model_identifier=model_ident,
-            assistant_content=content,
-            finish_reason=first_choice.get("finish_reason"),
-            prompt_token_count=usage.get("prompt_tokens"),
-            output_token_count=usage.get("completion_tokens"),
-        )
+        try:
+            return NormalizedResponse(
+                provider_kind=ProviderKind.LM_STUDIO,
+                model_identifier=model,
+                assistant_content=content,
+                finish_reason=finish_reason,
+                prompt_token_count=prompt_tokens,
+                output_token_count=completion_tokens,
+            )
+        except ValueError as e:
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO, "Failed to construct NormalizedResponse."
+            ) from e
 
     async def check_availability(self) -> ProviderAvailability:
         self._ensure_open()
@@ -153,11 +201,19 @@ class LMStudioAdapter(ModelProvider):
 
         available_models = []
         for m in data_list:
-            if isinstance(m, dict) and isinstance(m.get("id"), str):
-                available_models.append(m["id"])
+            if isinstance(m, dict):
+                m_id = m.get("id")
+                if isinstance(m_id, str) and m_id:
+                    available_models.append(m_id)
 
-        return ProviderAvailability(models=available_models)
+        try:
+            return ProviderAvailability(models=available_models)
+        except ValueError as e:
+            raise ProviderProtocolError(
+                ProviderKind.LM_STUDIO, "Failed to construct ProviderAvailability."
+            ) from e
 
     async def aclose(self) -> None:
-        self._closed = True
-        await self._client.aclose()
+        if not self._closed:
+            self._closed = True
+            await self._client.aclose()

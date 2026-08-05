@@ -1,6 +1,6 @@
 # ADR-0006: Local Model and Embedding Stack
 
-* **Status:** Proposed — deferred to Phase 1D compatibility gate
+* **Status:** Accepted (deferred to Phase 1D compatibility gate)
 * **Date:** 2026-08-05
 * **Context:** SentinelRAG requires an initial embedding implementation fitting an RTX 4060 (8 GB VRAM) with a CPU fallback. Generation requires local interfaces for Ollama and LM Studio. Actual validation and installation are deferred to Phase 1D to comply with staged compatibility.
 * **Decision:**

@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from sentinelrag.config.settings import ProviderKind
 
@@ -40,17 +40,36 @@ class NormalizedResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     provider_kind: ProviderKind
-    model_identifier: str
-    assistant_content: str
+    model_identifier: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+    ]
+    assistant_content: Annotated[
+        str, StringConstraints(min_length=1, max_length=1048576)
+    ]
     finish_reason: str | None = None
-    prompt_token_count: int | None = None
-    output_token_count: int | None = None
+    prompt_token_count: int | None = Field(default=None, ge=0)
+    output_token_count: int | None = Field(default=None, ge=0)
 
 
 class ProviderAvailability(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    models: list[str]
+    models: list[
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+        ]
+    ] = Field(max_length=100)
+
+    @field_validator("models")
+    @classmethod
+    def deduplicate_models(cls, v: list[str]) -> list[str]:
+        seen = set()
+        out = []
+        for x in v:
+            if x not in seen:
+                out.append(x)
+                seen.add(x)
+        return out
 
 
 # Base exception for all provider errors
@@ -93,10 +112,6 @@ class ProviderTimeoutError(ProviderError):
 
 class ProviderHttpError(ProviderError):
     def __init__(self, provider: ProviderKind, message: str, status: int) -> None:
-        # HTTP 4xx are not retryable. 5xx may be, but prompt says "Do not retry HTTP responses"  # noqa: E501
-        # Wait, prompt says: "Do not retry HTTP 4xx responses, protocol errors, read timeouts or malformed responses."  # noqa: E501
-        # And "Retry only httpx.ConnectError and httpx.ConnectTimeout."
-        # So HTTP errors are NEVER retryable.
         super().__init__(provider, "http_error", message, False, status)
 
 

@@ -4,16 +4,14 @@ SentinelRAG is an open-source research prototype and portfolio project aimed at 
 
 Phase 0 — Repository and governance foundation is complete.
 
-Independent audit verdict: PASS WITH WARNINGS.
+Phase 1A passed with warnings.
+Phase 1B is implemented but failed audit and is under remediation.
+
 Verified project progress: 8%.
 
-Phase 1B — Local Model Provider Contracts is complete, pending external audit.
+Phase 1C is not approved.
 
-Verified project progress: 15%.
-
-Phase 1C — Embedding configuration and database initialization is next but has not started.
-
-**Explicit Statement:** The foundation and local model integration contracts exist, but no RAG application, database, vector index, or UI exists yet.
+**Explicit Statement:** No database, ingestion, retrieval, API or dashboard exists.
 
 ## Planned Capabilities
 In future phases, the project plans to include:

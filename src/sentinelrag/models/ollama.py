@@ -10,6 +10,7 @@ from sentinelrag.models.contracts import (
     ProviderAvailability,
     ProviderClosedError,
     ProviderProtocolError,
+    ResponseTooLargeError,
 )
 from sentinelrag.models.http import create_http_client, execute_request_with_retries
 from sentinelrag.models.provider import ModelProvider
@@ -31,6 +32,12 @@ class OllamaAdapter(ModelProvider):
 
     async def generate(self, request: GenerationRequest) -> NormalizedResponse:
         self._ensure_open()
+
+        if request.max_tokens > self._settings.max_requested_output_tokens:
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA,
+                "Requested tokens exceed the maximum allowed output tokens.",
+            )
 
         messages = [
             {"role": m.role.value, "content": m.content} for m in request.messages
@@ -87,29 +94,64 @@ class OllamaAdapter(ModelProvider):
                 ProviderKind.OLLAMA, "Missing or invalid 'message' in response."
             )
 
-        content = message.get("content")
-        if not isinstance(content, str):
+        role = message.get("role")
+        if role != "assistant":
             raise ProviderProtocolError(
-                ProviderKind.OLLAMA, "Missing or invalid 'message.content' in response."
+                ProviderKind.OLLAMA, "Message role is not 'assistant'."
             )
 
-        # Enforce max response characters
-        if len(content) > self._settings.max_response_characters:
-            # We truncate or error. The prompt says: "Enforce: Maximum HTTP response bytes, Maximum normalized assistant-content characters"  # noqa: E501
-            # I will raise an error.
+        content = message.get("content")
+        if not isinstance(content, str) or not content:
             raise ProviderProtocolError(
                 ProviderKind.OLLAMA,
-                f"Generated content exceeds maximum characters ({len(content)} > {self._settings.max_response_characters}).",  # noqa: E501
+                "Missing, empty, or invalid 'message.content' in response.",
             )
 
-        return NormalizedResponse(
-            provider_kind=ProviderKind.OLLAMA,
-            model_identifier=model,
-            assistant_content=content,
-            finish_reason=data.get("done_reason"),
-            prompt_token_count=data.get("prompt_eval_count"),
-            output_token_count=data.get("eval_count"),
-        )
+        done = data.get("done")
+        if done is not True:
+            raise ProviderProtocolError(ProviderKind.OLLAMA, "Response is not done.")
+
+        done_reason = data.get("done_reason")
+        if done_reason is not None and not isinstance(done_reason, str):
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA, "Invalid 'done_reason' in response."
+            )
+
+        prompt_eval_count = data.get("prompt_eval_count")
+        if prompt_eval_count is not None and (
+            not isinstance(prompt_eval_count, int) or prompt_eval_count < 0
+        ):
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA, "Invalid 'prompt_eval_count' in response."
+            )
+
+        eval_count = data.get("eval_count")
+        if eval_count is not None and (
+            not isinstance(eval_count, int) or eval_count < 0
+        ):
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA, "Invalid 'eval_count' in response."
+            )
+
+        if len(content) > self._settings.max_response_characters:
+            raise ResponseTooLargeError(
+                ProviderKind.OLLAMA,
+                "Generated content exceeds maximum characters limit.",
+            )
+
+        try:
+            return NormalizedResponse(
+                provider_kind=ProviderKind.OLLAMA,
+                model_identifier=model,
+                assistant_content=content,
+                finish_reason=done_reason,
+                prompt_token_count=prompt_eval_count,
+                output_token_count=eval_count,
+            )
+        except ValueError as e:
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA, "Failed to construct NormalizedResponse."
+            ) from e
 
     async def check_availability(self) -> ProviderAvailability:
         self._ensure_open()
@@ -147,11 +189,19 @@ class OllamaAdapter(ModelProvider):
 
         available_models = []
         for m in models_list:
-            if isinstance(m, dict) and isinstance(m.get("name"), str):
-                available_models.append(m["name"])
+            if isinstance(m, dict):
+                name = m.get("name")
+                if isinstance(name, str) and name:
+                    available_models.append(name)
 
-        return ProviderAvailability(models=available_models)
+        try:
+            return ProviderAvailability(models=available_models)
+        except ValueError as e:
+            raise ProviderProtocolError(
+                ProviderKind.OLLAMA, "Failed to construct ProviderAvailability."
+            ) from e
 
     async def aclose(self) -> None:
-        self._closed = True
-        await self._client.aclose()
+        if not self._closed:
+            self._closed = True
+            await self._client.aclose()

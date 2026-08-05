@@ -1,6 +1,6 @@
 # ADR-0004: Phase 1 Python and Web Stack
 
-* **Status:** Proposed — pending independent Phase 1A audit
+* **Status:** Accepted
 * **Date:** 2026-08-05
 * **Context:** SentinelRAG requires a robust, async-capable web and configuration stack for its Phase 1 local baseline. The current project enforces Python 3.14. To prevent premature full-stack failures, we are applying staged compatibility. This ADR currently approves only the Phase 1B dependencies.
 * **Decision:**

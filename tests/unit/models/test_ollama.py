@@ -40,6 +40,7 @@ def test_ollama_generate_success(settings: SentinelSettings) -> None:
             content = {
                 "model": "test-model",
                 "message": {"role": "assistant", "content": "Hello world!"},
+                "done": True,
                 "done_reason": "stop",
                 "prompt_eval_count": 10,
                 "eval_count": 5,

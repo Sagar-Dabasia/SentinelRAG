@@ -11,21 +11,19 @@ def test_python_contract() -> None:
 
 def test_project_status_contract() -> None:
     status = Path("docs/PROJECT_STATUS.md").read_text()
+    assert "Current activity: Phase 1B remediation pending external audit" in status
+    assert "Phase 1 implementation status: IN PROGRESS" in status
     assert (
-        "Current activity: Phase 1A CI and evidence closure pending external audit"
-        in status
-    )
-    assert "Phase 1 implementation status: NOT STARTED" in status
-    assert (
-        "Last independently audited commit: d8cd729cc423cf204c101662f3d2b053c2776547"
+        "Last independently audited commit: 412157a77c01be761597d1d672cc1610fc4028c3"
         in status
     )
     assert "Last audit verdict: FAIL" in status
-    assert "Phase 1A gate: REMEDIATION IN PROGRESS" in status
+    assert "Phase 1A gate: PASSED WITH WARNINGS" in status
     assert "Verified project progress: 8%" in status
-    assert "Phase 1B: NOT APPROVED" in status
+    assert "Phase 1B gate: REMEDIATION IN PROGRESS" in status
     assert (
-        "Next action: independent remote audit of the Phase 1A closure commit" in status
+        "Next action: independent remote audit of the Phase 1B remediation "
+        "commit" in status
     )
 
     open_risks_line = [
@@ -95,7 +93,7 @@ def test_compatibility_report_contract() -> None:
         "Deferred Phase 1F decisions",
         "Requirements-to-evidence matrix",
         "Limitations",
-        "External audit: PENDING",
+        "Phase 1A closure complete",
     ]
     for h in expected_headings:
         assert h in report, f"Missing heading: {h}"
