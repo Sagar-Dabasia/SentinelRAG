@@ -1,127 +1,227 @@
+import importlib.metadata
+import os
 import socket
-from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from scripts.verify_phase1b_compatibility import (
+    NetworkBlockedError,
+    VerificationError,
     block_network,
-    get_expected_versions,
     main,
+    parse_requirements,
+    scrub_secrets,
+    verify_distributions,
 )
+
+FAKE_TOML_CONTENT = """
+[dependency-groups]
+phase1b-compat = [
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "httpx==0.28.1",
+]
+"""
 
 
 @pytest.fixture
-def unblock_network() -> Iterator[None]:
-    original_connect = socket.socket.connect
-    original_create = socket.create_connection
-    yield
-    socket.socket.connect = original_connect  # type: ignore[method-assign]
-    socket.create_connection = original_create
+def fake_pyproject(tmp_path: Path) -> Path:
+    toml_path = tmp_path / "pyproject.toml"
+    toml_path.write_text(FAKE_TOML_CONTENT)
+    return toml_path
 
 
-def test_network_blocker(unblock_network: None) -> None:
-    block_network()
-    with pytest.raises(RuntimeError, match="Network connection blocked"):
-        socket.socket.connect(socket.socket(), ("8.8.8.8", 80))
-    with pytest.raises(RuntimeError, match="Network connection blocked"):
-        socket.create_connection(("8.8.8.8", 80))
-
-
-def test_requirement_parsing_valid(monkeypatch: pytest.MonkeyPatch) -> None:
-    valid_toml = (
-        "phase1b-compat = [\n"
-        '    "pydantic==2.13.4",\n'
-        '    "pydantic-settings==2.14.2",\n'
-        '    "httpx==0.28.1",\n'
-        "]\n"
-    )
-    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: valid_toml)
-    monkeypatch.setattr(Path, "exists", lambda *args, **kwargs: True)
-
-    versions = get_expected_versions()
-    assert versions == {
+def test_valid_exact_requirement_parsing(fake_pyproject: Path) -> None:
+    parsed = parse_requirements(fake_pyproject)
+    assert parsed == {
         "pydantic": "2.13.4",
         "pydantic-settings": "2.14.2",
         "httpx": "0.28.1",
     }
 
 
-def test_rejection_of_non_exact_requirements(monkeypatch: pytest.MonkeyPatch) -> None:
-    invalid_toml = 'phase1b-compat = [\n    "pydantic>=2.13.4",\n]\n'
-    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: invalid_toml)
-    monkeypatch.setattr(Path, "exists", lambda *args, **kwargs: True)
+def test_rejection_of_non_exact_requirement(tmp_path: Path) -> None:
+    toml_path = tmp_path / "pyproject.toml"
+    toml_path.write_text("""
+[dependency-groups]
+phase1b-compat = [
+    "pydantic>=2.13.4",
+]
+""")
+    with pytest.raises(VerificationError, match="does not use exact '==' pinning"):
+        parse_requirements(toml_path)
 
-    with pytest.raises(RuntimeError, match="Non-exact requirement found:"):
-        get_expected_versions()
+
+def test_rejection_of_extras_and_url_requirements(tmp_path: Path) -> None:
+    toml_path = tmp_path / "pyproject.toml"
+    toml_path.write_text("""
+[dependency-groups]
+phase1b-compat = [
+    "pydantic[extra]==2.13.4",
+]
+""")
+    with pytest.raises(VerificationError, match="contains invalid syntax"):
+        parse_requirements(toml_path)
 
 
-def test_missing_distribution_detection(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    # Set a fake requirement for a package that isn't installed
-    fake_toml = (
-        "phase1b-compat = [\n"
-        '    "pydantic==2.13.4",\n'
-        '    "pydantic-settings==2.14.2",\n'
-        '    "httpx==0.28.1",\n'
-        '    "fake-pkg==1.0.0",\n'
-        "]\n"
-    )
-    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: fake_toml)
-    monkeypatch.setattr(Path, "exists", lambda *args, **kwargs: True)
+def test_missing_dependency_group(tmp_path: Path) -> None:
+    toml_path = tmp_path / "pyproject.toml"
+    toml_path.write_text("[dependency-groups]\nother = []")
+    with pytest.raises(VerificationError, match="not found in pyproject.toml"):
+        parse_requirements(toml_path)
 
-    import scripts.verify_phase1b_compatibility as verifier
 
-    monkeypatch.setattr(verifier, "DIST_TO_MODULE", {"fake-pkg": "fake_pkg"})
+def test_empty_dependency_group(tmp_path: Path) -> None:
+    toml_path = tmp_path / "pyproject.toml"
+    toml_path.write_text("[dependency-groups]\nphase1b-compat = []")
+    with pytest.raises(VerificationError, match="is empty"):
+        parse_requirements(toml_path)
 
+
+def test_exact_dependency_set_enforcement() -> None:
+    expected = {"pydantic": "2.13.4", "httpx": "0.28.1"}
+    with pytest.raises(
+        VerificationError, match="Dependency group does not exactly match"
+    ):
+        verify_distributions(expected)
+
+
+def test_mapping_mismatch_detection() -> None:
+    expected = {"pydantic": "2.13.4", "pydantic-settings": "2.14.2", "httpx": "0.28.1"}
+    with (
+        patch(
+            "scripts.verify_phase1b_compatibility.DIST_TO_MODULE",
+            {"pydantic": "pydantic"},
+        ),
+        pytest.raises(
+            VerificationError, match="DIST_TO_MODULE mapping keys do not exactly match"
+        ),
+    ):
+        verify_distributions(expected)
+
+
+def test_installed_version_mismatch_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = {"pydantic": "9.9.9", "pydantic-settings": "2.14.2", "httpx": "0.28.1"}
+
+    def fake_version(name: str) -> str:
+        return "1.0.0"
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    with pytest.raises(VerificationError, match="Version mismatch"):
+        verify_distributions(expected)
+
+
+def test_missing_distribution_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = {"pydantic": "2.13.4", "pydantic-settings": "2.14.2", "httpx": "0.28.1"}
+
+    def fake_version(name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError()
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    with pytest.raises(VerificationError, match="is not installed"):
+        verify_distributions(expected)
+
+
+def test_successful_import_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = {"pydantic": "2.13.4", "pydantic-settings": "2.14.2", "httpx": "0.28.1"}
+
+    def fake_version(name: str) -> str:
+        return expected[name]
+
+    imported_modules = []
+
+    def fake_import(name: str) -> None:
+        imported_modules.append(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    monkeypatch.setattr("importlib.import_module", fake_import)
+    verify_distributions(expected)
+    assert "pydantic" in imported_modules
+
+
+def test_network_connection_blocked_during_verification() -> None:
+    with block_network():
+        with pytest.raises(NetworkBlockedError):
+            socket.socket.connect(None, None)  # type: ignore
+        with pytest.raises(NetworkBlockedError):
+            socket.create_connection(None)  # type: ignore
+
+
+def test_network_functions_restored_after_success() -> None:
+    orig_connect = socket.socket.connect
+    orig_create = socket.create_connection
+    with block_network():
+        pass
+    assert socket.socket.connect is orig_connect
+    assert socket.create_connection is orig_create
+
+
+def test_network_functions_restored_after_failure() -> None:
+    orig_connect = socket.socket.connect
+    orig_create = socket.create_connection
+    try:
+        with block_network():
+            raise ValueError("Some error")
+    except ValueError:
+        pass
+    assert socket.socket.connect is orig_connect
+    assert socket.create_connection is orig_create
+
+
+def test_secret_variables_absent_during_import() -> None:
+    os.environ["OPENAI_API_KEY"] = "supersecret"  # pragma: allowlist secret
+    try:
+        with scrub_secrets():
+            assert "OPENAI_API_KEY" not in os.environ
+    finally:
+        os.environ.pop("OPENAI_API_KEY", None)
+
+
+def test_secret_variables_restored_after_success() -> None:
+    os.environ["ANTHROPIC_API_KEY"] = "supersecret2"  # pragma: allowlist secret
+    try:
+        with scrub_secrets():
+            pass
+        val = os.environ["ANTHROPIC_API_KEY"]
+        assert val == "supersecret2"  # pragma: allowlist secret
+    finally:
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+
+def test_secret_variables_restored_after_failure() -> None:
+    os.environ["HF_TOKEN"] = "supersecret3"  # pragma: allowlist secret
+    try:
+        try:
+            with scrub_secrets():
+                raise ValueError("error")
+        except ValueError:
+            pass
+        val = os.environ["HF_TOKEN"]
+        assert val == "supersecret3"  # pragma: allowlist secret
+    finally:
+        os.environ.pop("HF_TOKEN", None)
+
+
+def test_failure_returns_non_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(Path("/"))  # ensure pyproject.toml not found
     result = main()
     assert result == 1
-    captured = capsys.readouterr()
-    assert "fake-pkg: Not installed." in captured.out
 
 
-def test_version_mismatch_detection(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_success_returns_zero(
+    fake_pyproject: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake_toml = (
-        "phase1b-compat = [\n"
-        '    "pydantic==99.99.99",\n'
-        '    "pydantic-settings==2.14.2",\n'
-        '    "httpx==0.28.1",\n'
-        "]\n"
-    )
-    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: fake_toml)
-    monkeypatch.setattr(Path, "exists", lambda *args, **kwargs: True)
+    monkeypatch.chdir(fake_pyproject.parent)
+
+    def fake_version(name: str) -> str:
+        return {"pydantic": "2.13.4", "pydantic-settings": "2.14.2", "httpx": "0.28.1"}[
+            name
+        ]
+
+    monkeypatch.setattr(importlib.metadata, "version", fake_version)
+    monkeypatch.setattr("importlib.import_module", lambda name: None)
 
     result = main()
-    assert result == 1
-    captured = capsys.readouterr()
-    assert "pydantic: Version mismatch" in captured.out
-
-
-def test_successful_import_path_and_mapping(
-    unblock_network: None,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    # We don't mock the pyproject.toml here, so it reads the actual one.
-    # We assume the environment has the correct packages installed.
-    # If the tests run in an environment where phase1b-compat is installed correctly,
-    # main() should return 0.
-    # To avoid failures if the env isn't perfect, we can't assume much.
-    # The prompt says: "Require installation, imports and all existing tests to pass."
-    # Since we must verify successful import path and it's a test for script logic,
-    # we can run main() and see if it passes. If it doesn't, the test fails,
-    # which is correct if the environment isn't set up. But the test environment
-    # WILL have the packages installed.
-
-    result = main()
-    captured = capsys.readouterr()
-    # If the real env has wrong versions, main() returns 1 and the test would fail.
-    # That is desired: tests only pass when the env matches pyproject.toml exactly.
     assert result == 0
-    assert "pydantic (v" in captured.out
-    assert "pydantic-settings (v" in captured.out
-    assert "httpx (v" in captured.out
-    assert "Status: PASSED" in captured.out

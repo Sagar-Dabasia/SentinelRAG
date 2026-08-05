@@ -13,8 +13,6 @@
     * **Dependency-versioning policy:** Strict pinning via `uv.lock`.
 * **Evidence:**
     * **Pydantic (2.13.4) / Pydantic Settings (2.14.2) / HTTPX (0.28.1):** Successfully verified and imported via `verify_phase1b_compatibility.py` under Python 3.14. No network connections at import time.
-* **Alternatives considered:**
-    * Full-stack ahead-of-time compatibility: Rejected due to causing blocked CI pipelines for future-phase dependencies (e.g. `tokenizers` build failure).
-* **Security consequences:** Application-owned provider protocol isolates the application from external SDK vulnerabilities.
+* **Security consequences:** Application-owned provider protocol reduces dependency surface; it does not eliminate client or protocol vulnerabilities.
 * **Operational consequences:** No external network calls during import are strictly enforced by the compatibility verifier.
 * **Revisit conditions:** FastAPI and Streamlit will be revisited in Phase 1F.

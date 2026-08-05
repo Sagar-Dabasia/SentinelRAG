@@ -14,10 +14,9 @@
 * **Alternatives considered:**
     * **Ignoring scope in Phase 1:** Rejected. Adding `workspace_id` and query filters later requires rewriting every repository query and potentially recreating vector indexes.
     * **Implementing full AuthZ in Phase 1:** Rejected. Violates the strict phasing roadmap.
-* **Security consequences:** Preparing the scope parameter now guarantees that Phase 2 only needs to swap the hardcoded "default" scope for an authenticated JWT/Session scope to achieve isolation.
+* **Security consequences:** The explicit Phase 1 scope parameter avoids a destructive schema redesign, but it does not provide tenant isolation. Phase 2 must implement authenticated identity, centralized authorization, scoped relational and vector queries, citation authorization, deletion and revocation enforcement, guessed-identifier tests and cross-user canary tests.
     * UUIDv4 does not encode chronological order.
     * Identity does not create isolation by itself.
-    * Phase 2 still requires authorization, scoped relational/vector queries, citation authorization, deletion/revocation enforcement and cross-user negative tests.
 * **Reproducibility consequences:** Explicit timestamps and UUIDv4 provide traceable provenance.
 * **Operational consequences:** Requires marginally more verbose repository methods in Phase 1.
 * **Revisit conditions:** If PostgreSQL partitioning is required for large multi-tenant instances in Phase 6, the `workspace_id` must be part of the partition key.

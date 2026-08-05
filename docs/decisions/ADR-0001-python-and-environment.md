@@ -9,16 +9,15 @@ We need a reproducible Python environment that enforces strict dependency lockin
 The preferred Python target is 3.14.
 
 ## Decision
-* We will use **Python 3.14** (specifically 3.14.6 resolved locally).
+* We will use **Python 3.14**. Python 3.14 is selected for Phase 0 and the exact Phase 1B dependency group. Full Phase 1 compatibility is not claimed.
 * We will use **uv** for dependency management and locking.
-* We will use **staged compatibility gates** rather than full-stack ahead-of-time compatibility checks.
+* We will use **staged compatibility gates** rather than full-stack ahead-of-time compatibility checks. Staged compatibility is now mandatory.
 
 ## Evidence
-* `uv lock` successfully resolved and downloaded CPython 3.14.6.
 * All Phase 0 dependencies (ruff, mypy, pytest, pre-commit, pip-audit, detect-secrets) successfully resolved and installed under Python 3.14.
-* The failed prior broad-stack probe in Phase 1A proved that testing the entire Phase 1 stack prematurely introduces blocking issues (e.g., `tokenizers` build failure on Python 3.14) unrelated to current implementation needs.
-* Staged compatibility replaced all-stack compatibility to isolate dependencies, prevent unrelated failures, and enforce strict "just-in-time" verification (Phase 1B).
-* Exact executed evidence: `uv run --group phase1b-compat python scripts/verify_phase1b_compatibility.py` succeeded for Pydantic, Pydantic Settings, and HTTPX.
+* The failed broad-stack experiment proved that testing the entire Phase 1 stack prematurely introduces blocking issues unrelated to current implementation needs.
+* Phase 1C, Phase 1D and Phase 1F require separate gates.
+* Local Phase 1B evidence is pending independent remote audit.
 
 ## Consequences
 * Fast and reproducible environment builds.

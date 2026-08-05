@@ -1,13 +1,16 @@
 # Project Status
 
-* **Current phase:** Phase 1 — Core local RAG baseline
-* **Current activity:** Replaced failed broad-stack experiment with staged Phase 1B compatibility gate
-* **Phase 1 implementation status:** NOT STARTED
-* **Last completed phase:** Phase 0
-* **Last verified remote commit before this task:** becb1572f18f57780d85de63fe5b4d67d6ddd79e
-* **Verified project progress:** 8%
-* **Last audit verdict:** PASS
-* **Next approved task:** Complete Phase 1A report and request independent audit
-* **Open risks:** RSK-001 through RSK-013, RSK-020 through RSK-025
+Current phase: Phase 1 — Core local RAG baseline
+Current activity: Phase 1A staged compatibility closure pending external audit
+Phase 1 implementation status: NOT STARTED
+Last completed phase: Phase 0
+Last independently audited commit: 0be9e4cb6b0ff500381e0f14f7431187b7b7319e
+Verified project progress: 8%
+Last audit verdict: FAIL
+Phase 1A gate: REMEDIATION IN PROGRESS
+Phase 1B: NOT APPROVED
+Next action: independent remote audit of the Phase 1A closure commit
+
+Open risks: RSK-001 through RSK-013, RSK-020 through RSK-026
 
 *(Note: Progress may increase only after an authorized commit, push, and remote audit.)*
