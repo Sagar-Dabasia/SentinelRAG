@@ -52,5 +52,8 @@ jobs:
       - name: Pre-commit checks (including detect-secrets)
         run: uv run pre-commit run --all-files
 
-      - name: Check for uncommitted changes
+      - name: Check diff whitespace
         run: git diff --check
+
+      - name: Confirm hooks made no tracked-file changes
+        run: git diff --exit-code

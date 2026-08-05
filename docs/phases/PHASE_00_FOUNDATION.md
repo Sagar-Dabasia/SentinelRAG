@@ -84,7 +84,41 @@ The initial remote commit was independently audited and resulted in a **FAIL** v
 * **Positive Verification (Clean Repository)**: `uv run pre-commit run detect-secrets --all-files` -> `Passed` (Exit code 0).
 * **Negative Verification (Synthetic Secret)**: Added fake AWS key to repository, executed hook -> `Failed` with exit code 1. Removed fake secret afterwards.
 
-## Status (Remediation)
+## Status (First Remediation)
+* **Commit hash:** ca06f0f99a2d0ddf93804f423962f8c34917af22
+* **Push status:** YES
+* **Remote audit:** FAIL
+
+## Independent Remote Audit Findings (Second Audit)
+The first remediation commit was independently audited and resulted in a **FAIL** verdict due to:
+* **Incomplete Threat Model**: `THREAT_MODEL.md` lacked full coverage and used incorrect phase mappings.
+* **Deleted Risk Entry**: `RSK-013` was improperly deleted.
+* **Tool Version Inconsistency**: Ruff tooling was inconsistent across `uv.lock`, `.pre-commit-config.yaml`, and `pyproject.toml`.
+* **CI Dirty-Tree Check**: `git diff --check` was improperly named/relied on.
+
+## Second Remediation Evidence
+
+### Exact CI Configuration Changes
+* Explicitly added `git diff --exit-code` and properly named the dirty-tree checks.
+* Aligned Ruff tool versions: set to `0.16.1` across lockfile, pre-commit config, and `pyproject.toml`.
+* Changed target-version in `pyproject.toml` back to `py314`.
+
+### Exact Remediation Commands and Outputs
+* `uv lock` -> `Resolved 51 packages in 1.20s`
+* `uv run ruff --version` -> `ruff 0.16.1`
+* `uv run ruff check .` -> `All checks passed!`
+* `uv run mypy src tests` -> `Success: no issues found in 2 source files`
+* `uv run pytest -q` -> `3 passed`
+* `uv run pytest -q --cov=sentinelrag --cov-report=xml --cov-fail-under=80` -> `Required test coverage of 80% reached. Total coverage: 100.00%`
+* `uv run pip-audit` -> `No known vulnerabilities found`
+* `uv run pre-commit run --all-files` -> `Passed`
+
+### Exact Local Test Evidence (Second Remediation)
+* **Test totals**: 3 collected, 3 passed, 0 failed, 0 skipped.
+* **Coverage percentage**: 100.00% (Required 80%).
+* **Pre-commit Ruff version**: Confirmed from pre-commit output that the Ruff hook environment uses `v0.16.1`.
+
+## Status (Second Remediation)
 * **Commit hash:** PENDING
 * **Push status:** PENDING
 * **Remote audit:** PENDING EXTERNAL AUDIT
