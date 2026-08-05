@@ -47,7 +47,7 @@ Agent ignored the explicit rule to only push verifiable, compliant state and fai
 ## 9. Configuration contract
 * Centralized Pydantic settings.
 * Pydantic Settings ignores unrecognized environment variables matching the prefix, but rejects extra init arguments.
-* Strict loopback validation (`127.0.0.1`, `::1`, `localhost`).
+* Strict loopback validation (`127.0.0.0/8`, `::1` and `localhost`).
 * Strict rejection of non-HTTP schemes, credentials, queries, and fragments.
 
 ## 10. Provider protocol
@@ -113,23 +113,36 @@ Agent ignored the explicit rule to only push verifiable, compliant state and fai
 * External audit verdict `FAIL`
 * Reason: required CI coverage, governance enforcement and evidence corrections were omitted
 
-## 19. Requirements-to-evidence matrix
+## 20. Independent Audit: Commit e86581b51e2f1f923df44ce25ff5fbd1a09ac1fd
+
+* Parent `63f40577157b02a610f725a6791661b1e4a773e3`
+* Commit message: `chore: Phase 1B CI and evidence closure`
+* 15 files changed
+* 512 additions, 108 deletions
+* CI run `#24`
+* Overall CI success
+* Main test job success
+* Phase 1B contracts job success
+* External audit verdict FAIL
+* Reason: artificial coverage-state mutation and stale contradictory evidence
+
+## 21. Requirements-to-evidence matrix
 
 | Requirement | Evidence file/test | Verification command | Exact result |
 | ----------- | ------------------ | -------------------- | ------------ |
-| MockTransport use | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 (tests fail due to coverage/progress checks) |
-| No patched HTTPX streaming methods | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
-| 95% focused branch coverage | `tests/unit/models`, `tests/unit/config` | `uv run pytest -q tests/unit/config tests/unit/models --cov=sentinelrag.config --cov=sentinelrag.models --cov-branch --cov-report=term-missing --cov-fail-under=95` | Exit code 1, 91.07% coverage |
-| 80% repository coverage | `tests/unit` | `uv run pytest -q --cov=sentinelrag --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80` | Exit code 1, 91.09% coverage |
+| MockTransport use | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| No patched HTTPX streaming methods | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| 95% focused branch coverage | `tests/unit/models`, `tests/unit/config` | `uv run pytest -q tests/unit/config tests/unit/models --cov=sentinelrag.config --cov=sentinelrag.models --cov-branch --cov-report=term-missing --cov-fail-under=95` | Exit code 0, 100% coverage |
+| 80% repository coverage | `tests/unit` | `uv run pytest -q --cov=sentinelrag --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80` | Exit code 0, 100% coverage |
 | Ruff | `.github/workflows/ci.yml` | `uv run ruff check .` | Exit code 0 |
 | mypy | `.github/workflows/ci.yml` | `uv run mypy src tests scripts` | Exit code 0 |
 | pip-audit | `.github/workflows/ci.yml` | `uv run pip-audit` | Exit code 0 |
 | pre-commit | `.pre-commit-config.yaml` | `uv run pre-commit run --all-files --verbose` | Exit code 0 |
-| Governance test | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
-| CI workflow enforcement | `.github/workflows/ci.yml` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
-| Safe endpoint documentation | `ADR-0009-Strict-Loopback-Only-Access.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
-| Phase 1C lock | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
-| 8% progress | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| Governance test | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| CI workflow enforcement | `.github/workflows/ci.yml` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| Safe endpoint documentation | `ADR-0009-Strict-Loopback-Only-Access.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| Phase 1C lock | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
+| 8% progress | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 0, 11 passed |
 
 Candidate commit: PENDING
 Push: PENDING

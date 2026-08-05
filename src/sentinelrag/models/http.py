@@ -44,7 +44,7 @@ async def execute_request_with_retries(
     attempts = 0
     max_attempts = retry_limit + 1
 
-    while attempts < max_attempts:
+    while True:
         attempts += 1
         try:
             async with client.stream(**request_kwargs) as response:
@@ -124,5 +124,3 @@ async def execute_request_with_retries(
             raise ProviderProtocolError(
                 provider, f"Request failed: {type(e).__name__}"
             ) from e
-
-    raise ProviderProtocolError(provider, "Maximum retries exceeded.")

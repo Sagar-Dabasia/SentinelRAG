@@ -36,6 +36,17 @@ def test_http_mocktransport_not_patched() -> None:
     assert "patch.object" not in content
 
 
+def test_no_artificial_mutations_in_tests() -> None:
+    test_models_path = Path(__file__).parent / "models"
+    test_config_path = Path(__file__).parent / "config"
+    for path in [test_models_path, test_config_path]:
+        for file in path.glob("test_*.py"):
+            content = file.read_text(encoding="utf-8")
+            assert "settings.endpoint = MockUrl()" not in content
+            assert 'settings.provider = "unknown"' not in content
+            assert "unreachable fallback" not in content.lower()
+
+
 def test_project_status_contract() -> None:
     status_path = Path(__file__).parent.parent.parent / "docs" / "PROJECT_STATUS.md"
     content = status_path.read_text(encoding="utf-8")
@@ -43,7 +54,7 @@ def test_project_status_contract() -> None:
     assert "Verified project progress: 8%" in content
     assert "Phase 1C: NOT APPROVED" in content
     assert (
-        "Last independently audited commit: 63f40577157b02a610f725a6791661b1e4a773e3"
+        "Last independently audited commit: e86581b51e2f1f923df44ce25ff5fbd1a09ac1fd"
         in content
     )
     assert "Last audit verdict: FAIL" in content
@@ -58,12 +69,32 @@ def test_phase1b_report_contract() -> None:
     )
     content = report_path.read_text(encoding="utf-8")
 
-    assert "#22" in content
-    assert "#23" in content
+    assert "#24" in content
     assert (
         "| Requirement | Evidence file/test | Verification command | Exact result |"
         in content
     )
+    # Check that current active evidence matrix does not have Exit code 1
+    # We'll isolate the current evidence matrix section.
+    # It ends before "## Mandatory verification" or EOF.
+    active_matrix_start = content.rfind("| Requirement | Evidence file/test |")
+    if active_matrix_start != -1:
+        active_matrix_section = content[active_matrix_start:]
+        assert "Exit code 1" not in active_matrix_section
+        assert re.search(r"9[5-9]%|100%", active_matrix_section) is not None, (
+            "must record focused coverage >= 95%"
+        )
+        assert re.search(r"[8-9][0-9]%|100%", active_matrix_section) is not None, (
+            "must record repo coverage >= 80%"
+        )
+
+    # pragma: allowlist secret
+    hash_val = "e86581b51e2f1f923df44ce25ff5fbd1a09ac1fd"  # pragma: allowlist secret
+    assert hash_val in content
+    assert "External audit: PENDING" in content
+    assert "external audit passed" not in content.lower()
+    assert "Main test job success" in content
+    assert "Phase 1B contracts job success" in content
 
     # Assert report does not claim loopback eliminates risk
     assert (

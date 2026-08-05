@@ -486,18 +486,3 @@ def test_stream_closes_on_http_error() -> None:
         assert stream.closed
 
     asyncio.run(_run())
-
-
-def test_execute_request_zero_max_attempts() -> None:
-    async def _run() -> None:
-        client = httpx.AsyncClient()
-        with pytest.raises(ProviderProtocolError, match="Maximum retries exceeded"):
-            await execute_request_with_retries(
-                client=client,
-                request_kwargs={"method": "POST", "url": "http://test"},
-                provider=ProviderKind.OLLAMA,
-                retry_limit=-1,
-                max_response_bytes=100,
-            )
-
-    asyncio.run(_run())

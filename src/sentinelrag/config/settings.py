@@ -76,8 +76,7 @@ class SentinelSettings(BaseSettings):
 
             # Validate endpoint host and path
             host = self.endpoint.host
-            if not host:
-                raise ValueError("Endpoint host is missing.")
+            assert host is not None
 
             # IPv6 cleanup for pydantic
             raw_host = host.strip("[]")

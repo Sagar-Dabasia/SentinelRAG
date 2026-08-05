@@ -11,12 +11,10 @@ def create_provider(
     settings: SentinelSettings,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> ModelProvider:
-    if settings.provider == ProviderKind.DISABLED:
-        return DisabledProvider()
-    elif settings.provider == ProviderKind.OLLAMA:
-        return OllamaAdapter(settings, transport)
-    elif settings.provider == ProviderKind.LM_STUDIO:
-        return LMStudioAdapter(settings, transport)
-
-    # Should be unreachable because settings validation rejects unknown providers
-    raise ValueError(f"Unsupported provider: {settings.provider}")
+    match settings.provider:
+        case ProviderKind.DISABLED:
+            return DisabledProvider()
+        case ProviderKind.OLLAMA:
+            return OllamaAdapter(settings, transport)
+        case ProviderKind.LM_STUDIO:
+            return LMStudioAdapter(settings, transport)
