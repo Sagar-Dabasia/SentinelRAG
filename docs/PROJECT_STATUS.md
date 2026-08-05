@@ -1,13 +1,13 @@
 # Project Status
 
-* **Current phase:** Phase 1 — Core local RAG baseline (`NOT STARTED`)
-* **Last completed phase:** Phase 0 — Repository and governance foundation
-* **Last externally verified implementation commit:** 13d343e2bb7faef4ac0910cf96b51054148c3c0f
-* **Phase 0 gate:** PASSED WITH WARNINGS
+* **Current phase:** Phase 1 — Core local RAG baseline
+* **Current activity:** dependency and architecture compatibility review
+* **Phase 1 implementation status:** NOT STARTED
+* **Last completed phase:** Phase 0
+* **Last verified remote commit before this task:** ef9be17735a513b5311c9bba6b5f97802a94039e
 * **Verified project progress:** 8%
-* **Last audit verdict:** PASS WITH WARNINGS
-* **Completed gates:** Phase 0 governance, reproducible environment, lockfile, baseline CI, lint, typing, tests, coverage, dependency audit, secret scan, architecture, threat model, evaluation plan and governance workflow
-* **Open warnings:** `RSK-021` Node.js action-runtime warning; local working-tree state cannot be proven by GitHub
-* **Next approved task:** Phase 1 dependency and architecture compatibility review before implementation
+* **Last audit verdict:** PASS
+* **Next approved task:** Phase 1B — Configuration and model-provider contracts
+* **Open risks:** RSK-001 through RSK-013, RSK-020 through RSK-025
 
 *(Note: Progress may increase only after an authorized commit, push, and remote audit.)*
