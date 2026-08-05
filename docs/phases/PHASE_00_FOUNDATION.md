@@ -119,6 +119,66 @@ The first remediation commit was independently audited and resulted in a **FAIL*
 * **Pre-commit Ruff version**: Confirmed from pre-commit output that the Ruff hook environment uses `v0.16.1`.
 
 ## Status (Second Remediation)
+* **Commit hash:** 234cee45ceb439014a22b099956eca6f0984f774
+* **Push status:** YES
+* **Remote audit:** FAIL
+
+## Independent Remote Audit Findings (Third Audit)
+The second remediation commit was independently audited and resulted in a **FAIL** verdict due to:
+* **Outdated Framework Version**: The threat model still mapped against the 2025 edition of the OWASP GenAI LLM Top 10, incorrectly attributing findings to outdated identifier numbers.
+* **Incorrect Phase Groupings**: Threats with differing implementation and testing phases were incorrectly bundled.
+* **Incorrect Control Statuses**: Existing Phase 0 controls were mislabelled as PLANNED.
+* **Incorrect Roadmap Mappings**: Phase implementations were incorrectly deferred or advanced.
+* **Persistent Warning**: A non-blocking Node.js runtime warning remained in the CI output.
+
+## Blocked Remediation Run
+An initial attempt to resolve the Third Audit findings was blocked by the automated agent (Antigravity).
+* **Commit performed:** NO
+* **Push performed:** NO
+* **Blocker Reason:** Incorrect Antigravity claim that the OWASP GenAI LLM Top 10 2026 was unavailable online.
+
+## Third Remediation Evidence
+
+### Official Source Verification
+Independent verification provided by the repository auditor confirms that OWASP published the 2026 edition on August 3, 2026. The exact official sources used for this remediation are:
+* **Official landing-page location:** https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
+* **Official companion-repository location:** https://github.com/GenAI-Security-Project/GenAI-LLM-Top10
+* **Official 2026/final source directory:** https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/tree/main/2026/final
+
+### Exact 2026 Category List
+* LLM01:2026 — Prompt Injection
+* LLM02:2026 — Sensitive Information Disclosure
+* LLM03:2026 — Excessive Agency
+* LLM04:2026 — Supply Chain
+* LLM05:2026 — Data and Model Poisoning
+* LLM06:2026 — Unbounded Consumption
+* LLM07:2026 — Misinformation
+* LLM08:2026 — Hidden Context Exposure
+* LLM09:2026 — Vector and Embedding Weaknesses
+* LLM10:2026 — Improper Output Handling
+
+### Exact Documentation Changes
+* **Corrected Threat Mappings:** Updated THREAT_MODEL.md to precisely map to the 2026 identifiers.
+* **Corrected Roadmap Mappings:** Separated mixed-phase threats, deferred agentic controls to future updates, and correctly categorized Phase 0 foundation controls as IMPLEMENTED or TESTED.
+* **Risk Register Updates:** RSK-013 status reverted to Open. Added RSK-020 for framework drift and RSK-021 for the deferred Node.js action warning.
+
+### Exact Remediation Commands and Outputs
+* uv lock --check
+* uv sync --locked --all-groups
+* uv run ruff format --check .
+* uv run ruff check .
+* uv run mypy src tests
+* uv run pytest -q
+* uv run pytest -q --cov=sentinelrag --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+* uv run pip-audit
+* uv run pre-commit run --all-files
+* git diff --check
+* git diff --stat
+* git status --short
+
+*(All commands passed successfully. The Node.js warning remains as a deferred maintenance risk in RSK-021)*
+
+## Status (Third Remediation)
 * **Commit hash:** PENDING
 * **Push status:** PENDING
 * **Remote audit:** PENDING EXTERNAL AUDIT

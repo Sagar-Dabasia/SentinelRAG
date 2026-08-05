@@ -1,7 +1,7 @@
 # Threat Model
 
 ## Scope and Current System State
-Currently (Phase 0), the system is merely a Python package baseline. This threat model describes the planned system architecture and risks.
+Currently (Phase 0), the system is merely a Python package baseline. This threat model describes the planned system architecture and risks using the verified OWASP GenAI LLM Top 10 2026 framework.
 
 ## Assets
 * User accounts
@@ -57,108 +57,243 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 
 ### TR-01: Direct & Indirect Prompt Injection
 * **Threat ID:** TR-01
-* **Threat category:** Prompt Injection (Direct prompt injection, Indirect prompt injection, System-prompt extraction)
-* **Relevant assets:** Model responses, Extracted text, System prompts, API endpoints
+* **Threat category:** Direct prompt injection, Indirect prompt injection
+* **Relevant assets:** Model responses, Extracted text
 * **Actor:** Adversarial prompt author, Malicious document author
-* **Entry point:** Chat interface input, Document ingestion pipeline
-* **Attack path:** Attacker submits malicious prompt overrides via chat or document uploads, extracting system prompts or altering output.
-* **Impact:** Generation of unauthorized content or internal instruction leakage.
-* **Planned controls:** PLANNED - Input validation, guardrails, and system prompt hardening.
-* **Current status:** PLANNED
-* **Residual risk:** LLMs may hallucinate or succumb to novel jailbreaks.
-* **Planned implementation phase:** Phase 5 (Layered defences and comparative experiments)
-* **Planned testing phase:** Phase 4 (Controlled red-team baseline)
-* **Framework mapping:** OWASP LLM01:2025
+* **Entry point:** Chat interface, Document ingestion pipeline
+* **Attack path:** Attacker submits malicious prompt overrides via chat or document uploads.
+* **Impact:** Generation of unauthorized content or unintended behavior.
+* **Controls:** Layered mitigations
+* **Control status:** PLANNED
+* **Residual risk:** LLMs may succumb to novel jailbreaks; delimiters/filters are incomplete solutions.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 4
+* **Framework mapping:** LLM01:2026 — Prompt Injection
+* **Mapping rationale:** Manipulating LLM input to alter intent fits prompt injection.
 
-### TR-02: Retrieval Poisoning & Output Handling
+### TR-02: Hidden Context Exposure & Extraction
 * **Threat ID:** TR-02
-* **Threat category:** Data Poisoning & Output Risks (Retrieval poisoning, Insecure output handling)
-* **Relevant assets:** Uploaded documents, Extracted text, Model responses
-* **Actor:** Malicious document author, Malicious authenticated user
-* **Entry point:** Document ingestion pipeline, API boundary
-* **Attack path:** Attacker introduces malicious data into the vector store. Downstream components render insecure output.
-* **Impact:** XSS on dashboard, corrupted context, misinformed responses.
-* **Planned controls:** PLANNED - Output encoding, secure parsing, and retrieval auditing.
-* **Current status:** PLANNED
-* **Residual risk:** Complex outputs or markdown rendering may evade filters.
-* **Planned implementation phase:** Phase 5
-* **Planned testing phase:** Phase 4
-* **Framework mapping:** OWASP LLM02:2025, LLM03:2025
+* **Threat category:** System-prompt extraction, Hidden-context exposure
+* **Relevant assets:** System prompts, Application configuration
+* **Actor:** Adversarial prompt author
+* **Entry point:** Chat interface
+* **Attack path:** Attacker injects prompts to extract hidden instructions, private reasoning, or internal application state.
+* **Impact:** Disclosure of system instructions and contextual state.
+* **Controls:** Layered mitigations
+* **Control status:** PLANNED
+* **Residual risk:** Prompt leakage via advanced extraction attacks.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 4
+* **Framework mapping:** LLM08:2026 — Hidden Context Exposure (and LLM01:2026 — Prompt Injection)
+* **Mapping rationale:** Exposure of system instructions or private context maps to LLM08; when attempted via injection, it also maps to LLM01.
 
-### TR-03: Access Control & Data Leakage
+### TR-03: Cross-User Leakage & Access Control
 * **Threat ID:** TR-03
-* **Threat category:** Access Control (Cross-user or cross-tenant leakage, Sensitive information disclosure, Improper access control, Broken object-level authorization)
-* **Relevant assets:** User accounts, Uploaded documents, Vector indexes, Metadata
+* **Threat category:** Cross-user or cross-tenant leakage, Improper access control, Broken object-level authorization
+* **Relevant assets:** User accounts, Uploaded documents
 * **Actor:** Malicious authenticated user, Unauthenticated attacker
-* **Entry point:** API endpoints, Database boundary
-* **Attack path:** Attacker exploits broken object-level authorization to access or leak other users' documents.
-* **Impact:** Data breach, sensitive information disclosure.
-* **Planned controls:** PLANNED - Robust RBAC, object-level authorization checks.
-* **Current status:** PLANNED
-* **Residual risk:** Deployment misconfigurations.
-* **Planned implementation phase:** Phase 2 (Identity, isolation and secure ingestion)
-* **Planned testing phase:** Phase 2
-* **Framework mapping:** OWASP API1:2023, LLM06:2025
+* **Entry point:** API endpoints
+* **Attack path:** Attacker exploits broken object-level authorization to access or leak other users' data.
+* **Impact:** Cross-user data breach.
+* **Controls:** Authentication, Authorization, Cross-user isolation
+* **Control status:** PLANNED
+* **Residual risk:** Implementation bugs in authorization logic.
+* **Implementation phase:** Phase 2
+* **Testing phase:** Phase 2
+* **Framework mapping:** Conventional Authorization (OWASP API1:2023)
+* **Mapping rationale:** LLM vulnerabilities do not replace the need for conventional server-side authorization.
 
-### TR-04: Ingestion & File Processing Risks
+### TR-04: Sensitive Information Disclosure
 * **Threat ID:** TR-04
-* **Threat category:** File Upload Vulnerabilities (Unsafe file upload, MIME-type spoofing, File-extension spoofing, Path traversal, Malicious document structure)
+* **Threat category:** Sensitive information disclosure
+* **Relevant assets:** Model responses, Uploaded documents
+* **Actor:** Malicious authenticated user, Adversarial prompt author
+* **Entry point:** Chat interface
+* **Attack path:** LLM inappropriately discloses sensitive data contained within its legitimate retrieval context.
+* **Impact:** Sensitive information leakage.
+* **Controls:** Layered mitigations, Retrieval filtering, Citation authorization
+* **Control status:** PLANNED
+* **Residual risk:** The model failing to respect confidentiality constraints.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 4
+* **Framework mapping:** LLM02:2026 — Sensitive Information Disclosure
+* **Mapping rationale:** The model inappropriately outputs sensitive data it was given access to.
+
+### TR-05: Excessive Agency
+* **Threat ID:** TR-05
+* **Threat category:** Excessive model or tool permissions
+* **Relevant assets:** Internal APIs, Local model service
+* **Actor:** Adversarial prompt author
+* **Entry point:** Chat interface
+* **Attack path:** LLM autonomously executes unauthorized operations using provided tools.
+* **Impact:** Unauthorized actions or resource mutation.
+* **Controls:** None currently applicable; SentinelRAG has no tools or autonomous agents.
+* **Control status:** DEFERRED — extend the threat model before tool introduction
+* **Residual risk:** Unforeseen model autonomy.
+* **Implementation phase:** DEFERRED
+* **Testing phase:** DEFERRED
+* **Framework mapping:** LLM03:2026 — Excessive Agency
+* **Mapping rationale:** Granting LLMs unchecked autonomy maps to excessive agency.
+
+### TR-06: Foundation Supply Chain & Configuration
+* **Threat ID:** TR-06
+* **Threat category:** Dependency compromise, Secret exposure, Insecure default configuration
+* **Relevant assets:** Source code, Build and CI workflow
+* **Actor:** Compromised dependency, Careless developer
+* **Entry point:** GitHub repository, CI
+* **Attack path:** Attacker compromises build dependencies or developer commits secrets/insecure defaults.
+* **Impact:** Codebase compromise, secret exposure.
+* **Controls:** Dependency lock, CI dependency audit, Secret scanning, Pinned actions, Governance documentation
+* **Control status:** IMPLEMENTED and TESTED
+* **Residual risk:** Zero-days in trusted tools.
+* **Implementation phase:** Phase 0
+* **Testing phase:** Phase 0
+* **Framework mapping:** LLM04:2026 — Supply Chain
+* **Mapping rationale:** Affects foundational dependencies and configuration.
+
+### TR-07: Advanced Supply Chain & Runtime Risks
+* **Threat ID:** TR-07
+* **Threat category:** Dependency compromise, Log leakage, Insecure default configuration
+* **Relevant assets:** Container images, Runtime environment
+* **Actor:** Compromised dependency, Misconfigured administrator
+* **Entry point:** Container boundary, Runtime
+* **Attack path:** Compromised container base image, vulnerable SBOM packages, or leaked logs in production.
+* **Impact:** Runtime compromise.
+* **Controls:** Containers, SBOM, Container scanning, Runtime privilege reduction, Advanced supply-chain hardening
+* **Control status:** PLANNED
+* **Residual risk:** Undetected supply chain attacks in production.
+* **Implementation phase:** Phase 7
+* **Testing phase:** Phase 7
+* **Framework mapping:** LLM04:2026 — Supply Chain
+* **Mapping rationale:** Production-level supply chain and runtime risks.
+
+### TR-08: Retrieval Poisoning
+* **Threat ID:** TR-08
+* **Threat category:** Retrieval poisoning
+* **Relevant assets:** Uploaded documents, Vector indexes
+* **Actor:** Malicious document author
+* **Entry point:** Document ingestion pipeline
+* **Attack path:** Attacker uploads malicious content to corrupt retrieval context.
+* **Impact:** Compromised LLM responses due to poisoned context.
+* **Controls:** Retrieval filtering, Layered mitigations
+* **Control status:** PLANNED
+* **Residual risk:** Subtle malicious data evades filters.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 4
+* **Framework mapping:** LLM05:2026 — Data and Model Poisoning
+* **Mapping rationale:** Manipulating the data corpus to poison retrieval mappings.
+
+### TR-09: Unbounded Consumption
+* **Threat ID:** TR-09
+* **Threat category:** Unbounded query consumption, Resource exhaustion
+* **Relevant assets:** Local model service, API endpoints
+* **Actor:** Unauthenticated attacker, Malicious authenticated user
+* **Entry point:** API endpoints
+* **Attack path:** Attacker sends unbounded queries or excessive inference requests (denial-of-wallet).
+* **Impact:** Denial of service, resource exhaustion.
+* **Controls:** Resource-abuse attack cases, Layered mitigations
+* **Control status:** PLANNED
+* **Residual risk:** Application-level DoS.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 4
+* **Framework mapping:** LLM06:2026 — Unbounded Consumption
+* **Mapping rationale:** Exhausting model inference resources maps directly to Unbounded Consumption.
+
+### TR-10: Ingestion File Risks
+* **Threat ID:** TR-10
+* **Threat category:** Unsafe file upload, MIME-type spoofing, File-extension spoofing, Path traversal, Oversized files, Malicious document structure
 * **Relevant assets:** Uploaded documents, Host filesystem
 * **Actor:** Malicious document author
 * **Entry point:** Ingestion pipeline
-* **Attack path:** Attacker uploads malformed files or spoofed extensions to trigger path traversal or exploit parser vulnerabilities.
-* **Impact:** RCE on ingestion workers, filesystem compromise.
-* **Planned controls:** PLANNED - Strict MIME/extension validation, sandboxed parsing, path sanitization.
-* **Current status:** PLANNED
-* **Residual risk:** Zero-day vulnerabilities in document parsing libraries.
-* **Planned implementation phase:** Phase 2
-* **Planned testing phase:** Phase 2
-* **Framework mapping:** OWASP Top 10:2025 A04 (Insecure Design)
+* **Attack path:** Attacker uploads oversized or malformed files to trigger path traversal or parsing bugs.
+* **Impact:** RCE, filesystem compromise, denial of service.
+* **Controls:** Secure ingestion, MIME and extension checks, Path safety, File-size and extraction limits, Oversized-file negative tests
+* **Control status:** PLANNED
+* **Residual risk:** Zero-day in parsing library.
+* **Implementation phase:** Phase 2
+* **Testing phase:** Phase 2
+* **Framework mapping:** Conventional ingestion and resource validation
+* **Mapping rationale:** Oversized and unsafe files are conventional ingestion and validation issues.
 
-### TR-05: Denial of Service & Resource Exhaustion
-* **Threat ID:** TR-05
-* **Threat category:** Availability (Oversized files, Resource exhaustion, Unbounded query consumption)
-* **Relevant assets:** Local model service, API endpoints
-* **Actor:** Unauthenticated attacker, Malicious authenticated user
-* **Entry point:** API endpoints, Ingestion pipeline
-* **Attack path:** Attacker uploads oversized files or sends unbounded queries to exhaust memory/compute.
-* **Impact:** Denial of service, system crash.
-* **Planned controls:** PLANNED - Rate limiting, file size limits, query depth bounds.
-* **Current status:** PLANNED
-* **Residual risk:** Application-level DoS might still occur before rate limits kick in.
-* **Planned implementation phase:** Phase 7 (Supply-chain and deployment hardening)
-* **Planned testing phase:** Phase 6 (Automated red teaming and dashboard)
-* **Framework mapping:** OWASP API4:2023
+### TR-11: Misinformation
+* **Threat ID:** TR-11
+* **Threat category:** Misinformation or unsupported model output
+* **Relevant assets:** Model responses
+* **Actor:** Normal authenticated user
+* **Entry point:** Chat interface
+* **Attack path:** Model naturally hallucinates, outputs misleading information, or provides unsupported answers.
+* **Impact:** User relies on incorrect information.
+* **Controls:** Citations, Comparative defence experiments, Utility and latency trade-offs
+* **Control status:** PLANNED
+* **Residual risk:** Inherent LLM hallucination rates.
+* **Implementation phase:** Phase 5
+* **Testing phase:** Phase 5
+* **Framework mapping:** LLM07:2026 — Misinformation
+* **Mapping rationale:** Unsupported, hallucinated, or misleading model answers.
 
-### TR-06: Supply Chain & Infrastructure Risks
-* **Threat ID:** TR-06
-* **Threat category:** Infrastructure (Dependency compromise, Secret exposure, Log leakage, Insecure default configuration)
-* **Relevant assets:** Source code, Build and CI workflow, Container images, Audit records
-* **Actor:** Compromised dependency, Careless developer, Misconfigured administrator
-* **Entry point:** GitHub repository, CI, Container boundary
-* **Attack path:** Third-party dependency is compromised, or misconfigurations leak secrets/logs.
-* **Impact:** Full system compromise, unauthorized access.
-* **Planned controls:** PLANNED - Lockfile management, secret scanning, secure defaults, sanitized logging.
-* **Current status:** PLANNED
-* **Residual risk:** Zero-day vulnerabilities in heavily relied-upon packages.
-* **Planned implementation phase:** Phase 7
-* **Planned testing phase:** Phase 7
-* **Framework mapping:** OWASP LLM05:2025, OWASP Top 10:2025 A05, A06
+### TR-12: Vector & Embedding Weaknesses
+* **Threat ID:** TR-12
+* **Threat category:** Vector-store metadata leakage
+* **Relevant assets:** Vector indexes, Metadata
+* **Actor:** Malicious authenticated user
+* **Entry point:** API endpoints
+* **Attack path:** Attacker extracts metadata from the vector store belonging to other tenants.
+* **Impact:** Sensitive information disclosure.
+* **Controls:** Vector metadata isolation
+* **Control status:** PLANNED
+* **Residual risk:** Misconfigured vector indexes.
+* **Implementation phase:** Phase 2
+* **Testing phase:** Phase 2
+* **Framework mapping:** LLM09:2026 — Vector and Embedding Weaknesses
+* **Mapping rationale:** Leakage or weaknesses specific to vector stores map to LLM09, but this does not substitute for access-control testing.
 
-### TR-07: Evaluation & Model Integrity
-* **Threat ID:** TR-07
-* **Threat category:** AI Integrity (Model or embedding provenance risk, Evaluation-data contamination, LLM-as-judge bias, Excessive model or tool permissions, Vector-store metadata leakage)
-* **Relevant assets:** Evaluator metrics, Evaluation results, Model responses
-* **Actor:** Adversarial prompt author, Compromised dependency
-* **Entry point:** Red-team harness, Model provider boundary
-* **Attack path:** Tainted models, biased judges, or evaluation data overlap leads to false security confidence or excessive tool use.
-* **Impact:** Overestimation of safety, compromised model integrity, metadata leakage.
-* **Planned controls:** PLANNED - Strict train/test separation, provenance tracking, deterministic evaluation checks, least-privilege tool access.
-* **Current status:** PLANNED
+### TR-13: Insecure Output Handling
+* **Threat ID:** TR-13
+* **Threat category:** Insecure output handling
+* **Relevant assets:** Model responses, Browser/dashboard
+* **Actor:** Malicious document author
+* **Entry point:** API boundary
+* **Attack path:** Malicious output is rendered insecurely, causing XSS or downstream execution.
+* **Impact:** XSS, arbitrary downstream execution.
+* **Controls:** Basic output handling
+* **Control status:** PLANNED
+* **Residual risk:** Evasion of output sanitization.
+* **Implementation phase:** Phase 1
+* **Testing phase:** Phase 1
+* **Framework mapping:** LLM10:2026 — Improper Output Handling
+* **Mapping rationale:** Unsafe rendering or execution of model output.
+
+### TR-14: Model Provenance Risk
+* **Threat ID:** TR-14
+* **Threat category:** Model or embedding provenance risk
+* **Relevant assets:** Local model service, Embeddings
+* **Actor:** Compromised dependency
+* **Entry point:** Model provider boundary
+* **Attack path:** Tainted models are downloaded or used without provenance verification.
+* **Impact:** Compromised model integrity.
+* **Controls:** Model and embedding provenance recording
+* **Control status:** PLANNED
+* **Residual risk:** Upstream compromise of trusted models.
+* **Implementation phase:** Phase 1
+* **Testing phase:** Phase 1
+* **Framework mapping:** LLM04:2026 — Supply Chain
+* **Mapping rationale:** Compromised models, embedding models, or datasets map to Supply Chain risks.
+
+### TR-15: Evaluation Integrity
+* **Threat ID:** TR-15
+* **Threat category:** Evaluation-data contamination, LLM-as-judge bias
+* **Relevant assets:** Evaluator metrics, Evaluation results
+* **Actor:** Normal authenticated user
+* **Entry point:** Red-team harness
+* **Attack path:** Evaluation datasets overlap with training data, or LLM judges exhibit systemic bias.
+* **Impact:** Overestimation of safety, compromised metrics.
+* **Controls:** Dataset manifests, Evaluation contamination controls, Deterministic metrics, LLM-judge calibration and bias analysis, Reproducible experiment metadata
+* **Control status:** PLANNED
 * **Residual risk:** Inherent bias in LLM evaluators.
-* **Planned implementation phase:** Phase 3 (Reproducible evaluation framework)
-* **Planned testing phase:** Phase 3
-* **Framework mapping:** OWASP LLM08:2025, LLM10:2025
+* **Implementation phase:** Phase 3
+* **Testing phase:** Phase 3
+* **Framework mapping:** LLM05:2026 — Data and Model Poisoning (and conventional research validity)
+* **Mapping rationale:** Accidental evaluation contamination is a research-validity risk and data poisoning concern.
 
 ## Assumptions
 * The environment is completely local and isolated.
@@ -167,9 +302,10 @@ Currently (Phase 0), the system is merely a Python package baseline. This threat
 * No testing against real people, proprietary systems, or non-synthetic data.
 
 ## Framework Mapping
-(Reviewed on 2026-08-05)
-* [OWASP Top 10 for LLM Applications 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
+(Framework facts supplied by independent repository auditor on 2026-08-05)
+* [OWASP GenAI LLM Top 10 2026](https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/) (Released 2026-08-03)
+* Official companion repository: [GenAI-LLM-Top10](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10)
 * [OWASP Top 10:2025](https://owasp.org/www-project-top-ten/)
-* NIST AI RMF 1.0 (Note: revision work is underway)
+* NIST AI RMF 1.0
 * NIST AI 600-1 Generative AI Profile
-* [MITRE ATLAS](https://atlas.mitre.org/) (Living knowledge base)
+* [MITRE ATLAS](https://atlas.mitre.org/)
