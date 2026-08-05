@@ -17,8 +17,8 @@ from scripts.verify_phase1b_compatibility import (
 )
 
 FAKE_TOML_CONTENT = """
-[dependency-groups]
-phase1b-compat = [
+[project]
+dependencies = [
     "pydantic==2.13.4",
     "pydantic-settings==2.14.2",
     "httpx==0.28.1",
@@ -45,8 +45,8 @@ def test_valid_exact_requirement_parsing(fake_pyproject: Path) -> None:
 def test_rejection_of_non_exact_requirement(tmp_path: Path) -> None:
     toml_path = tmp_path / "pyproject.toml"
     toml_path.write_text("""
-[dependency-groups]
-phase1b-compat = [
+[project]
+dependencies = [
     "pydantic>=2.13.4",
 ]
 """)
@@ -57,8 +57,8 @@ phase1b-compat = [
 def test_rejection_of_extras_and_url_requirements(tmp_path: Path) -> None:
     toml_path = tmp_path / "pyproject.toml"
     toml_path.write_text("""
-[dependency-groups]
-phase1b-compat = [
+[project]
+dependencies = [
     "pydantic[extra]==2.13.4",
 ]
 """)
@@ -68,23 +68,21 @@ phase1b-compat = [
 
 def test_missing_dependency_group(tmp_path: Path) -> None:
     toml_path = tmp_path / "pyproject.toml"
-    toml_path.write_text("[dependency-groups]\nother = []")
-    with pytest.raises(VerificationError, match="not found in pyproject.toml"):
+    toml_path.write_text("[project]\nother = []")
+    with pytest.raises(VerificationError, match="not found in \\[project\\] section"):
         parse_requirements(toml_path)
 
 
 def test_empty_dependency_group(tmp_path: Path) -> None:
     toml_path = tmp_path / "pyproject.toml"
-    toml_path.write_text("[dependency-groups]\nphase1b-compat = []")
-    with pytest.raises(VerificationError, match="is empty"):
+    toml_path.write_text("[project]\ndependencies = []")
+    with pytest.raises(VerificationError, match="Dependencies list is empty"):
         parse_requirements(toml_path)
 
 
 def test_exact_dependency_set_enforcement() -> None:
     expected = {"pydantic": "2.13.4", "httpx": "0.28.1"}
-    with pytest.raises(
-        VerificationError, match="Dependency group does not exactly match"
-    ):
+    with pytest.raises(VerificationError, match="Dependencies do not exactly match"):
         verify_distributions(expected)
 
 

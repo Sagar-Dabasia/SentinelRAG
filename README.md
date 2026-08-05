@@ -7,9 +7,13 @@ Phase 0 — Repository and governance foundation is complete.
 Independent audit verdict: PASS WITH WARNINGS.
 Verified project progress: 8%.
 
-Phase 1 — Core local RAG baseline is next but has not started.
+Phase 1B — Local Model Provider Contracts is complete, pending external audit.
 
-**Explicit Statement:** No RAG application, database, API, model integration, authentication system, vector index, or UI exists yet.
+Verified project progress: 15%.
+
+Phase 1C — Embedding configuration and database initialization is next but has not started.
+
+**Explicit Statement:** The foundation and local model integration contracts exist, but no RAG application, database, vector index, or UI exists yet.
 
 ## Planned Capabilities
 In future phases, the project plans to include:

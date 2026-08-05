@@ -808,6 +808,11 @@ wheels = [
 name = "sentinelrag"
 version = "0.1.0"
 source = { editable = "." }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -819,13 +824,13 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
-phase1b-compat = [
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-]
 
 [package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = "==0.28.1" },
+    { name = "pydantic", specifier = "==2.13.4" },
+    { name = "pydantic-settings", specifier = "==2.14.2" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -836,11 +841,6 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "ruff", specifier = "==0.16.1" },
-]
-phase1b-compat = [
-    { name = "httpx", specifier = "==0.28.1" },
-    { name = "pydantic", specifier = "==2.13.4" },
-    { name = "pydantic-settings", specifier = "==2.14.2" },
 ]
 
 [[package]]

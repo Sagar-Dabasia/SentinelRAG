@@ -11,9 +11,9 @@ The current implemented state is purely a repository foundation.
 ### Phase 1 — Core Local RAG Baseline (PLANNED)
 * **FastAPI API layer:** Base API endpoints.
 * **Streamlit basic research dashboard:** Initial interface for local execution.
-* **Model-provider abstraction:** Interfaces with various underlying LLMs.
-* **Ollama adapter:** Local integration for Ollama models.
-* **OpenAI-compatible local adapter:** Generic API integration for local endpoints.
+* **Model-provider abstraction (IMPLEMENTED in Phase 1B):** Interfaces with various underlying LLMs via a central `Provider` protocol.
+* **Ollama adapter (IMPLEMENTED in Phase 1B):** Local integration for Ollama models enforcing strict loopback-only constraints.
+* **LM Studio adapter (IMPLEMENTED in Phase 1B):** OpenAI-compatible local integration enforcing strict loopback-only constraints.
 * **Embedding service:** Interfaces with the selected embedding models.
 * **Parser abstraction:** Standardized interfaces for extracting text from different formats.
 * **Baseline-safe file-validation service:** Enforces baseline safety (allowlisted extensions, MIME validation, maximum file size, safe generated storage names, no user-supplied filesystem paths, content hashing, parser and extraction limits, transactional failure).

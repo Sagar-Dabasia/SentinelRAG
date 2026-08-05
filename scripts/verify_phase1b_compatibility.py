@@ -94,14 +94,14 @@ def parse_requirements(pyproject_path: Path) -> dict[str, str]:
         data = tomllib.load(f)
 
     try:
-        deps = data["dependency-groups"]["phase1b-compat"]
+        deps = data["project"]["dependencies"]
     except KeyError:
         raise VerificationError(
-            "Dependency group 'phase1b-compat' not found in pyproject.toml."
+            "Dependencies not found in [project] section of pyproject.toml."
         ) from None
 
     if not deps:
-        raise VerificationError("Dependency group 'phase1b-compat' is empty.")
+        raise VerificationError("Dependencies list is empty.")
 
     parsed = {}
     for req in deps:
@@ -142,13 +142,13 @@ def verify_distributions(expected: dict[str, str]) -> None:
     expected_keys = set(expected.keys())
     if expected_keys != EXPECTED_DISTRIBUTIONS:
         raise VerificationError(
-            "Dependency group does not exactly match the allowed Phase 1B set."
+            "Dependencies do not exactly match the allowed Phase 1B runtime set."
         )
 
     mapping_keys = set(DIST_TO_MODULE.keys())
     if mapping_keys != EXPECTED_DISTRIBUTIONS:
         raise VerificationError(
-            "DIST_TO_MODULE mapping keys do not exactly match the allowed Phase 1B set."
+            "DIST_TO_MODULE mapping keys do not exactly match the allowed Phase 1B runtime set."  # noqa: E501
         )
 
     for dist, expected_version in expected.items():
