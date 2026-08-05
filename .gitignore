@@ -1,0 +1,54 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing and coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Type checking
+.mypy_cache/
+.pyre/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Generated build files
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# OS and Temp files
+*~
+*.bak
+
+# SentinelRAG specific
+secrets/
+*.db
+*.sqlite3
+data/uploads/
+data/models/
+data/indexes/
+artifacts/experiment_outputs/
+logs/

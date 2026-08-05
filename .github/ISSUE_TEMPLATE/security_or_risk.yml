@@ -1,0 +1,13 @@
+name: Security or Risk Finding
+description: Report a security finding or risk.
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ **DO NOT DISCLOSE EXPLOIT DETAILS FOR UNRESOLVED VULNERABILITIES HERE.** Please use GitHub Private Vulnerability Reporting or a private channel."
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Describe the risk or theoretical vulnerability.
+    validations:
+      required: true

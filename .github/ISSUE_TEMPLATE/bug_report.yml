@@ -1,0 +1,20 @@
+name: Bug Report
+description: Report a reproducible bug.
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide a clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: Exact commands to reproduce the issue locally.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: "⚠️ **DO NOT POST REAL SECRETS, CREDENTIALS, OR SENSITIVE DATA.**"
