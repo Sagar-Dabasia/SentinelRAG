@@ -57,3 +57,27 @@ jobs:
 
       - name: Confirm hooks made no tracked-file changes
         run: git diff --exit-code
+
+  phase1-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
+        with:
+          version: "0.12.0"
+
+      - name: Set up Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install compatibility dependencies
+        run: uv sync --locked --extra phase1-compat
+
+      - name: Run compatibility check script
+        run: uv run --extra phase1-compat python scripts/verify_phase1_compatibility.py

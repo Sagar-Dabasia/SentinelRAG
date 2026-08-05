@@ -7,7 +7,8 @@
     * **Single-Workspace Behaviour:** Phase 1 will operate using a single local default workspace (e.g., `workspace_id = "default"`).
     * **Explicit Scope-Context Interface:** All repository interfaces (CRUD, retrieval) must accept an explicit scope context object. The backend will enforce this context at the query level.
     * **Planned Entities:** `Workspace`, `Document` (contains status, extraction metadata, hash, workspace_id), `DocumentPage`, `DocumentChunk` (contains text, vector, workspace_id, document_id, index_config).
-    * **Stable Identifiers:** ULIDs or UUIDv7 will be used for time-sortable, globally unique, stable identifiers.
+    * **Stable Identifiers:** UUIDv7 will be used for time-sortable, globally unique, stable identifiers. UUIDv7 guarantees chronological ordering by default in the database.
+    * **Tenant Isolation:** A strict multi-tenant scope (`tenant_id`) will be enforced at the ORM layer.
     * **Deletion/Revocation State:** Soft-delete/tombstone flags (e.g., `is_revoked`, `deleted_at`) will be tracked on the `Document` entity. Queries must explicitly filter these out.
     * **Citation Provenance:** Chunks will carry reference to their parent `Document` and `DocumentPage`, allowing generations to cite exact sources.
     * **Explicit Statement:** Phase 1 is **NOT** multi-user secure. The single default scope is a development scaffold, not a security boundary.

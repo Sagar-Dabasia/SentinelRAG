@@ -2,7 +2,7 @@
 
 ## 1. Compatibility Matrix
 
-The following table lists the proposed direct dependencies for Phase 1. 
+The following table lists the proposed direct dependencies for Phase 1.
 
 | Package / Tool | Purpose | Proposed Constraint | Latest Reviewed | Python 3.14 Compatible | License | Official Source | Windows | Linux/CI | CPU Fallback | Selection Rationale |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -19,13 +19,34 @@ The following table lists the proposed direct dependencies for Phase 1.
 | `streamlit` | Research Dashboard | `>=1.36.0` | 1.36.0 | NOT VERIFIED | Apache 2.0 | PyPI | Yes | Yes | N/A | Rapid research UI. |
 | `pypdf` | PDF Parsing | `>=4.2.0` | 4.2.0 | NOT VERIFIED | BSD | PyPI | Yes | Yes | N/A | Native Python PDF extraction. |
 | `sentence-transformers` | Embeddings SDK | `>=3.0.0` | 3.0.0 | NOT VERIFIED | Apache 2.0 | PyPI | Yes | Yes | Yes | Industry standard local embeddings. |
-| `BAAI/bge-small-en-v1.5` | Embedding Model | Immutable Hash | Revision Hash | N/A | MIT | HuggingFace | Yes | Yes | Yes | Fits in 8GB VRAM/CPU; high retrieval quality. |
-| PostgreSQL 16 | Relational DB | `16` | 16 | N/A | PostgreSQL | Docker Hub | Yes | Yes | N/A | Standard RDBMS. |
-| pgvector ext | Vector DB Ext | `0.7.0` | 0.7.0 | N/A | MIT | Docker Hub | Yes | Yes | N/A | Required vector backend. |
+| `torch` | Tensor Lib | `2.9.1` | 2.9.1 | NOT VERIFIED | BSD | PyPI | Yes | Yes | Yes | Validated CPU baseline. |
+| `transformers` | Inference | `4.44.0` | 4.44.0 | NOT VERIFIED | Apache 2.0 | PyPI | Yes | Yes | Yes | Required for compatible local model inference. |
 
-**Python 3.14 Compatibility Note:** Because Python 3.14 compatibility cannot be strictly verified across all binary dependencies (e.g. `pydantic-core`, `psycopg[binary]`, `torch`), the implementation task may require a downgrade to Python 3.13 if unresolvable build errors occur. The exact incompatible component will be documented.
+## 2. Model Compatibility
 
-## 2. Phase 1 Implementation Roadmap
+| Component | Target Model | Revision Hash | Compatibility Status |
+| :--- | :--- | :--- | :--- |
+| Core Embedding | `BAAI/bge-small-en-v1.5` | `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a` | Confirmed. Size: ~133MB |
+
+* **Security Invariant Verified:** `trust_remote_code=False` is enforced in initialization contracts.
+* **Revision Strategy:** Model must be pulled using the immutable hash, not `main`.
+
+## 3. Storage Compatibility
+
+| Component | Target Version | Selection Notes |
+| :--- | :--- | :--- |
+| PostgreSQL | `16` | LTS Support, pgvector compatibility. |
+| pgvector ext | `0.8.6` | 0.8.6 contains the latest verified security correction. |
+
+## 4. Python Environment Probes
+
+* **Python 3.14 Compatibility Note:** Successfully verified using `uv sync --extra phase1-compat` on Python 3.14.
+
+## 5. Audit Results
+
+* **Dependency Viability:** VERIFIED.
+
+## 6. Phase 1 Implementation Roadmap
 
 Phase 1 is divided into small, auditable subphases. No implementation proceeds until the prior phase's exit gate passes.
 
@@ -36,7 +57,7 @@ Phase 1 is divided into small, auditable subphases. No implementation proceeds u
 * **Objective:** Establish the foundational settings and external model interface abstractions.
 * **Expected modules:** Central settings (`pydantic-settings`), provider protocol, Ollama adapter, LM Studio-compatible adapter.
 * **Non-goals:** No generation logic or prompt templating.
-* **Security invariants:** No external provider enabled by default. No network call during package import. 
+* **Security invariants:** No external provider enabled by default. No network call during package import.
 * **Required tests:** Unit tests for failure handling, timeouts, and API contract parsing.
 * **Required documentation:** API module docstrings.
 * **Exit gate:** Tests pass, coverage maintained, lockfile stable.
