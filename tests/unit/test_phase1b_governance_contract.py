@@ -96,7 +96,8 @@ def test_phase1a_closure_text_exists() -> None:
         / "PHASE_01_COMPATIBILITY_REVIEW.md"
     )
     content = report_path.read_text(encoding="utf-8")
-    assert "8e93ae2d9fa00681360d36b215b25bc549c5700c" in content
+    sha = "8e93ae2d9fa00681360d36b215b25bc549c5700c"  # pragma: allowlist secret
+    assert sha in content
     assert "PASS WITH WARNINGS" in content
 
 

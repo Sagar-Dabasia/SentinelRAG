@@ -119,7 +119,9 @@ class OllamaAdapter(ModelProvider):
 
         prompt_eval_count = data.get("prompt_eval_count")
         if prompt_eval_count is not None and (
-            not isinstance(prompt_eval_count, int) or prompt_eval_count < 0
+            not isinstance(prompt_eval_count, int)
+            or isinstance(prompt_eval_count, bool)
+            or prompt_eval_count < 0
         ):
             raise ProviderProtocolError(
                 ProviderKind.OLLAMA, "Invalid 'prompt_eval_count' in response."
@@ -127,7 +129,9 @@ class OllamaAdapter(ModelProvider):
 
         eval_count = data.get("eval_count")
         if eval_count is not None and (
-            not isinstance(eval_count, int) or eval_count < 0
+            not isinstance(eval_count, int)
+            or isinstance(eval_count, bool)
+            or eval_count < 0
         ):
             raise ProviderProtocolError(
                 ProviderKind.OLLAMA, "Invalid 'eval_count' in response."
@@ -191,11 +195,15 @@ class OllamaAdapter(ModelProvider):
         for m in models_list:
             if isinstance(m, dict):
                 name = m.get("name")
-                if isinstance(name, str) and name:
-                    available_models.append(name)
+                if isinstance(name, str) and name.strip():
+                    available_models.append(name.strip())
 
         try:
-            return ProviderAvailability(models=available_models)
+            return ProviderAvailability(
+                provider_kind=ProviderKind.OLLAMA,
+                available=True,
+                models=available_models,
+            )
         except ValueError as e:
             raise ProviderProtocolError(
                 ProviderKind.OLLAMA, "Failed to construct ProviderAvailability."

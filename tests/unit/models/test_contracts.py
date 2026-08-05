@@ -1,7 +1,14 @@
 import pytest
 from pydantic import ValidationError
 
-from sentinelrag.models.contracts import ChatMessage, ChatRole, GenerationRequest
+from sentinelrag.config.settings import ProviderKind
+from sentinelrag.models.contracts import (
+    ChatMessage,
+    ChatRole,
+    GenerationRequest,
+    NormalizedResponse,
+    ProviderAvailability,
+)
 
 
 def test_chat_message_valid() -> None:
@@ -79,3 +86,71 @@ def test_generation_request_immutability() -> None:
     req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="Hello")])
     with pytest.raises(ValidationError):
         req.temperature = 1.0
+
+
+def test_provider_availability_deduplicates_and_preserves_order() -> None:
+    pa = ProviderAvailability(
+        provider_kind=ProviderKind.OLLAMA,
+        available=True,
+        models=["c", "a", "c", "b", "a"],
+    )
+    assert pa.models == ["c", "a", "b"]
+
+
+def test_provider_availability_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        ProviderAvailability(
+            provider_kind=ProviderKind.OLLAMA,
+            available=True,
+            models=["a"],
+            extra_field="rejected",  # type: ignore[call-arg]
+        )
+
+
+def test_normalized_response_rejects_whitespace_only() -> None:
+    with pytest.raises(ValidationError):
+        NormalizedResponse(
+            provider_kind=ProviderKind.OLLAMA,
+            model_identifier="test",
+            assistant_content="   \n\t  ",
+        )
+    # Valid non-whitespace
+    nr = NormalizedResponse(
+        provider_kind=ProviderKind.OLLAMA,
+        model_identifier="test",
+        assistant_content=" \n valid \t ",
+    )
+    assert nr.assistant_content == " \n valid \t "
+
+
+def test_normalized_response_token_types() -> None:
+    # Boolean rejected
+    with pytest.raises(ValidationError):
+        NormalizedResponse(
+            provider_kind=ProviderKind.OLLAMA,
+            model_identifier="test",
+            assistant_content="valid",
+            prompt_token_count=True,
+        )
+    with pytest.raises(ValidationError):
+        NormalizedResponse(
+            provider_kind=ProviderKind.OLLAMA,
+            model_identifier="test",
+            assistant_content="valid",
+            prompt_token_count=10.5,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValidationError):
+        NormalizedResponse(
+            provider_kind=ProviderKind.OLLAMA,
+            model_identifier="test",
+            assistant_content="valid",
+            prompt_token_count="10",  # type: ignore[arg-type]
+        )
+    # Valid int
+    nr = NormalizedResponse(
+        provider_kind=ProviderKind.OLLAMA,
+        model_identifier="test",
+        assistant_content="valid",
+        prompt_token_count=10,
+    )
+    assert nr.prompt_token_count == 10

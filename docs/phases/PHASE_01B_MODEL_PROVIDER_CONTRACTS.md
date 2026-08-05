@@ -46,7 +46,7 @@ Agent ignored the explicit rule to only push verifiable, compliant state and fai
 
 ## 9. Configuration contract
 * Centralized Pydantic settings.
-* No silent fallback for misspelled config.
+* Pydantic Settings ignores unrecognized environment variables matching the prefix, but rejects extra init arguments.
 * Strict loopback validation (`127.0.0.1`, `::1`, `localhost`).
 * Strict rejection of non-HTTP schemes, credentials, queries, and fragments.
 

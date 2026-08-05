@@ -1,7 +1,14 @@
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+)
 
 from sentinelrag.config.settings import ProviderKind
 
@@ -44,15 +51,18 @@ class NormalizedResponse(BaseModel):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
     ]
     assistant_content: Annotated[
-        str, StringConstraints(min_length=1, max_length=1048576)
+        str, StringConstraints(min_length=1, max_length=1048576, pattern=r"\S")
     ]
     finish_reason: str | None = None
-    prompt_token_count: int | None = Field(default=None, ge=0)
-    output_token_count: int | None = Field(default=None, ge=0)
+    prompt_token_count: StrictInt | None = Field(default=None, ge=0)
+    output_token_count: StrictInt | None = Field(default=None, ge=0)
 
 
 class ProviderAvailability(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    provider_kind: ProviderKind
+    available: bool
 
     models: list[
         Annotated[

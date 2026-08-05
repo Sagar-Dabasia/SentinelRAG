@@ -1,6 +1,5 @@
 import asyncio
 import json
-from typing import Any
 
 import httpx
 import pytest
@@ -13,16 +12,23 @@ from sentinelrag.models.contracts import (
     ProviderClosedError,
     ProviderHttpError,
     ProviderProtocolError,
+    ResponseTooLargeError,
 )
 from sentinelrag.models.ollama import OllamaAdapter
 
 
-class MockTransport(httpx.AsyncBaseTransport):
-    def __init__(self, response_factory: Any) -> None:
-        self.response_factory = response_factory
+class MockAsyncByteStream(httpx.AsyncByteStream):
+    def __init__(self, content: bytes) -> None:
+        self._content = content
+        self.closed = False
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        return self.response_factory(request)  # type: ignore
+    from collections.abc import AsyncIterator
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        yield self._content
+
+    async def aclose(self) -> None:
+        self.closed = True
 
 
 @pytest.fixture
@@ -34,9 +40,15 @@ def settings() -> SentinelSettings:
     )
 
 
-def test_ollama_generate_success(settings: SentinelSettings) -> None:
+def test_ollama_generate_success_and_payload_mapping(
+    settings: SentinelSettings,
+) -> None:
     async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
+        captured_request = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_request
+            captured_request = request
             content = {
                 "model": "test-model",
                 "message": {"role": "assistant", "content": "Hello world!"},
@@ -44,16 +56,32 @@ def test_ollama_generate_success(settings: SentinelSettings) -> None:
                 "done_reason": "stop",
                 "prompt_eval_count": 10,
                 "eval_count": 5,
+                "extra_field": "ignored",
             }
             return httpx.Response(
-                200, content=json.dumps(content).encode("utf-8"), request=request
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
             )
 
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
         req = GenerationRequest(
-            messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
+            messages=[ChatMessage(role=ChatRole.USER, content="Hello")],
+            temperature=0.8,
+            max_tokens=500,
+            seed=42,
         )
         resp = await adapter.generate(req)
+
+        assert captured_request is not None
+        assert captured_request.method == "POST"
+        assert str(captured_request.url) == "http://127.0.0.1/api/chat"
+
+        payload = json.loads(captured_request.content)
+        assert payload["model"] == "test-model"
+        assert payload["stream"] is False
+        assert payload["messages"] == [{"role": "user", "content": "Hello"}]
+        assert payload["options"]["temperature"] == 0.8
+        assert payload["options"]["num_predict"] == 500
+        assert payload["options"]["seed"] == 42
 
         assert resp.provider_kind == ProviderKind.OLLAMA
         assert resp.model_identifier == "test-model"
@@ -65,101 +93,217 @@ def test_ollama_generate_success(settings: SentinelSettings) -> None:
     asyncio.run(_run())
 
 
-def test_ollama_generate_http_error(settings: SentinelSettings) -> None:
-    async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(400, content=b"Bad request", request=request)
-
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
-        req = GenerationRequest(
-            messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
-        )
-        with pytest.raises(ProviderHttpError, match="HTTP 400"):
-            await adapter.generate(req)
-
-    asyncio.run(_run())
-
-
 def test_ollama_generate_invalid_json(settings: SentinelSettings) -> None:
     async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, content=b"{invalid", request=request)
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=MockAsyncByteStream(b"{invalid"))
 
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
-        req = GenerationRequest(
-            messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
-        )
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
         with pytest.raises(ProviderProtocolError, match="Invalid JSON"):
             await adapter.generate(req)
 
     asyncio.run(_run())
 
 
-def test_ollama_generate_missing_fields(settings: SentinelSettings) -> None:
+def test_ollama_generate_missing_model(settings: SentinelSettings) -> None:
     async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
-            content = {"model": "test"}
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {"message": {"role": "assistant", "content": "H"}, "done": True}
             return httpx.Response(
-                200, content=json.dumps(content).encode("utf-8"), request=request
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
             )
 
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
-        req = GenerationRequest(
-            messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
-        )
-        with pytest.raises(ProviderProtocolError, match="Missing or invalid 'message'"):
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Missing or invalid 'model'"):
             await adapter.generate(req)
 
     asyncio.run(_run())
 
 
-def test_ollama_check_availability_success(settings: SentinelSettings) -> None:
+def test_ollama_generate_wrong_assistant_role(settings: SentinelSettings) -> None:
     async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {
+                "model": "m",
+                "message": {"role": "user", "content": "H"},
+                "done": True,
+            }
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(
+            ProviderProtocolError, match="Message role is not 'assistant'"
+        ):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_whitespace_content(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {
+                "model": "m",
+                "message": {"role": "assistant", "content": "   "},
+                "done": True,
+            }
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(
+            ProviderProtocolError, match="Failed to construct NormalizedResponse"
+        ):
+            # Pydantic validates assistant_content regex
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_invalid_token_counts(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {
+                "model": "m",
+                "message": {"role": "assistant", "content": "H"},
+                "done": True,
+                "prompt_eval_count": True,  # bool
+            }
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Invalid 'prompt_eval_count'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_done_missing_or_false(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {"model": "m", "message": {"role": "assistant", "content": "H"}}
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Response is not done"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_invalid_done_reason(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {
+                "model": "m",
+                "message": {"role": "assistant", "content": "H"},
+                "done": True,
+                "done_reason": 123,
+            }
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Invalid 'done_reason'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_oversized_character_response(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            content = {
+                "model": "m",
+                "message": {"role": "assistant", "content": "H" * 40000},
+                "done": True,
+            }
+            return httpx.Response(
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
+            )
+
+        settings.max_response_characters = 100
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ResponseTooLargeError, match="exceeds maximum characters"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_error_bodies_not_exposed(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, stream=MockAsyncByteStream(b"SECRET_DB_ERROR"))
+
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderHttpError) as exc:
+            await adapter.generate(req)
+        assert "SECRET_DB_ERROR" not in str(exc.value)
+
+    asyncio.run(_run())
+
+
+def test_ollama_check_availability_deduplicates_and_skips_invalid(
+    settings: SentinelSettings,
+) -> None:
+    async def _run() -> None:
+        captured_request = None
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_request
+            captured_request = request
             content = {
                 "models": [
                     {"name": "model1"},
+                    {"name": "   "},  # whitespace only skipped
                     {"name": "model2"},
+                    {"name": "model1"},  # deduplicated
+                    {"invalid": "model"},  # missing name skipped
+                    "string not dict",  # skipped
                 ]
             }
             return httpx.Response(
-                200, content=json.dumps(content).encode("utf-8"), request=request
+                200, stream=MockAsyncByteStream(json.dumps(content).encode("utf-8"))
             )
 
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
+        adapter = OllamaAdapter(settings, transport=httpx.MockTransport(handler))
         avail = await adapter.check_availability()
+
+        assert captured_request is not None
+        assert captured_request.method == "GET"
+        assert str(captured_request.url) == "http://127.0.0.1/api/tags"
+
         assert avail.models == ["model1", "model2"]
 
     asyncio.run(_run())
 
 
-def test_ollama_check_availability_invalid_format(settings: SentinelSettings) -> None:
-    async def _run() -> None:
-        def response_factory(request: httpx.Request) -> httpx.Response:
-            content = {"models": "not a list"}
-            return httpx.Response(
-                200, content=json.dumps(content).encode("utf-8"), request=request
-            )
-
-        adapter = OllamaAdapter(settings, transport=MockTransport(response_factory))
-        with pytest.raises(
-            ProviderProtocolError, match="Missing or invalid 'models' list"
-        ):
-            await adapter.check_availability()
-
-    asyncio.run(_run())
-
-
-def test_ollama_closed(settings: SentinelSettings) -> None:
+def test_ollama_closed_idempotent_and_rejects(settings: SentinelSettings) -> None:
     async def _run() -> None:
         adapter = OllamaAdapter(
-            settings, transport=MockTransport(lambda r: httpx.Response(200))
+            settings, transport=httpx.MockTransport(lambda r: httpx.Response(200))
         )
         await adapter.aclose()
+        await adapter.aclose()  # idempotent
 
-        req = GenerationRequest(
-            messages=[ChatMessage(role=ChatRole.USER, content="Hello")]
-        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
         with pytest.raises(ProviderClosedError):
             await adapter.generate(req)
 

@@ -132,14 +132,18 @@ class LMStudioAdapter(ModelProvider):
                 )
             prompt_tokens = usage.get("prompt_tokens")
             if prompt_tokens is not None and (
-                not isinstance(prompt_tokens, int) or prompt_tokens < 0
+                not isinstance(prompt_tokens, int)
+                or isinstance(prompt_tokens, bool)
+                or prompt_tokens < 0
             ):
                 raise ProviderProtocolError(
                     ProviderKind.LM_STUDIO, "Invalid 'prompt_tokens' in response."
                 )
             completion_tokens = usage.get("completion_tokens")
             if completion_tokens is not None and (
-                not isinstance(completion_tokens, int) or completion_tokens < 0
+                not isinstance(completion_tokens, int)
+                or isinstance(completion_tokens, bool)
+                or completion_tokens < 0
             ):
                 raise ProviderProtocolError(
                     ProviderKind.LM_STUDIO, "Invalid 'completion_tokens' in response."
@@ -203,11 +207,15 @@ class LMStudioAdapter(ModelProvider):
         for m in data_list:
             if isinstance(m, dict):
                 m_id = m.get("id")
-                if isinstance(m_id, str) and m_id:
-                    available_models.append(m_id)
+                if isinstance(m_id, str) and m_id.strip():
+                    available_models.append(m_id.strip())
 
         try:
-            return ProviderAvailability(models=available_models)
+            return ProviderAvailability(
+                provider_kind=ProviderKind.LM_STUDIO,
+                available=True,
+                models=available_models,
+            )
         except ValueError as e:
             raise ProviderProtocolError(
                 ProviderKind.LM_STUDIO, "Failed to construct ProviderAvailability."

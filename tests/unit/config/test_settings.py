@@ -60,14 +60,29 @@ def test_loopback_host_acceptance() -> None:
     )
     assert s3.endpoint and s3.endpoint.host == "[::1]"
 
+    s4 = SentinelSettings(
+        provider=ProviderKind.OLLAMA,
+        endpoint="http://127.0.0.2/api",  # type: ignore[arg-type]
+        model_identifier="test",
+    )
+    assert s4.endpoint and s4.endpoint.host == "127.0.0.2"
+
+    s5 = SentinelSettings(
+        provider=ProviderKind.OLLAMA,
+        endpoint="http://127.255.255.254/api",  # type: ignore[arg-type]
+        model_identifier="test",
+    )
+    assert s5.endpoint and s5.endpoint.host == "127.255.255.254"
+
 
 def test_public_host_rejection() -> None:
-    with pytest.raises(ValidationError, match="Only loopback hosts are allowed"):
+    with pytest.raises(ValidationError, match="Endpoint host is invalid") as exc_info:
         SentinelSettings(
             provider=ProviderKind.OLLAMA,
             endpoint="http://example.com/api",  # type: ignore[arg-type]
             model_identifier="test",
         )
+    assert "example.com" not in str(exc_info.value)
 
 
 def test_lan_address_rejection() -> None:
@@ -195,3 +210,20 @@ def test_settings_representations_do_not_expose_secret_values() -> None:
     assert (
         "password" not in rep.lower()
     )  # though we have no passwords, ensure representation is safe
+
+
+def test_misspelled_environment_variable_ignored() -> None:
+    with patch.dict(
+        os.environ,
+        {
+            "SENTINELRAG_PROVIDER": "ollama",
+            "SENTINELRAG_ENDPOINT": "http://127.0.0.1/api",
+            "SENTINELRAG_MODEL_IDENTIFIER": "env-model",
+            "SENTINELRAG_TYPO_SETTING": "value",
+        },
+    ):
+        # Pydantic Settings ignores misspelled environment variables
+        # even when extra="forbid" is set, as env vars are not passed to __init__.
+        settings = SentinelSettings()
+        assert not hasattr(settings, "typo_setting")
+        assert not hasattr(settings, "SENTINELRAG_TYPO_SETTING")

@@ -9,7 +9,7 @@
     * **Provider Abstraction:** Application-owned provider protocol and direct HTTP adapters.
     * **Network Constraints:** No network at import. No provider enabled by default.
     * **Deferred Approvals:** No FastAPI or Uvicorn approval yet. FastAPI and Streamlit validation deferred to Phase 1F.
-    * **Configuration Approach:** Centralized using Pydantic Settings.
+    * **Configuration Approach:** Centralized using Pydantic Settings. `extra="forbid"` is enabled to reject unknown fields during instantiation, but note that Pydantic Settings ignores unrecognized environment variables matching the prefix instead of rejecting them.
     * **Dependency-versioning policy:** Strict pinning via `uv.lock`.
 * **Evidence:**
     * **Pydantic (2.13.4) / Pydantic Settings (2.14.2) / HTTPX (0.28.1):** Successfully verified and imported via `verify_phase1b_compatibility.py` under Python 3.14. No network connections at import time.

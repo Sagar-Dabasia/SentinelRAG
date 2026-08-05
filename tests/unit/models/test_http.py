@@ -1,7 +1,5 @@
 import asyncio
-from collections.abc import AsyncGenerator
-from typing import Any
-from unittest.mock import patch
+from collections.abc import AsyncIterator
 
 import httpx
 import pytest
@@ -17,103 +15,80 @@ from sentinelrag.models.contracts import (
 from sentinelrag.models.http import execute_request_with_retries
 
 
-class MockStreamResponse:
-    def __init__(
-        self, status_code: int, headers: dict[str, str], content: bytes
-    ) -> None:
-        self.status_code = status_code
-        self.headers = httpx.Headers(headers)
-        self.content = content
-        self.request = httpx.Request("POST", "http://test")
+class MockAsyncByteStream(httpx.AsyncByteStream):
+    def __init__(self, content: bytes, chunk_size: int = 2) -> None:
+        self._content = content
+        self._chunk_size = chunk_size
+        self.closed = False
 
-    async def __aenter__(self) -> MockStreamResponse:
-        return self
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for i in range(0, len(self._content), self._chunk_size):
+            yield self._content[i : i + self._chunk_size]
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        pass
-
-    async def aread(self) -> None:
-        pass
-
-    async def aiter_bytes(self) -> AsyncGenerator[bytes]:
-        chunk_size = 2
-        for i in range(0, len(self.content), chunk_size):
-            yield self.content[i : i + chunk_size]
-
-    def read(self) -> None:
-        pass
+    async def aclose(self) -> None:
+        self.closed = True
 
 
-def test_execute_request_with_retries_success() -> None:
+# 1. Successful bounded streamed response
+def test_1_successful_stream() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
-        with patch.object(
-            client, "stream", return_value=MockStreamResponse(200, {}, b'{"ok": true}')
-        ):
-            resp = await execute_request_with_retries(
-                client=client,
-                request_kwargs={"method": "POST", "url": "http://test"},
-                provider=ProviderKind.OLLAMA,
-                retry_limit=1,
-                max_response_bytes=1000,
-            )
-            assert resp.status_code == 200
-            assert resp.content == b'{"ok": true}'
+        stream = MockAsyncByteStream(b"hello")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        resp = await execute_request_with_retries(
+            client=client,
+            request_kwargs={"method": "POST", "url": "http://test"},
+            provider=ProviderKind.OLLAMA,
+            retry_limit=1,
+            max_response_bytes=100,
+        )
+        assert resp.content == b"hello"
+        assert stream.closed
 
     asyncio.run(_run())
 
 
-def test_execute_request_with_retries_http_error() -> None:
+# 2. Content-Length exactly at limit
+def test_2_content_length_exact() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
-        with (
-            patch.object(
-                client, "stream", return_value=MockStreamResponse(400, {}, b"Bad")
-            ),
-            pytest.raises(ProviderHttpError, match="HTTP 400"),
-        ):
-            await execute_request_with_retries(
-                client=client,
-                request_kwargs={"method": "POST", "url": "http://test"},
-                provider=ProviderKind.OLLAMA,
-                retry_limit=1,
-                max_response_bytes=1000,
-            )
+        stream = MockAsyncByteStream(b"12345")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, headers={"Content-Length": "5"}, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        resp = await execute_request_with_retries(
+            client=client,
+            request_kwargs={"method": "POST", "url": "http://test"},
+            provider=ProviderKind.OLLAMA,
+            retry_limit=1,
+            max_response_bytes=5,
+        )
+        assert resp.content == b"12345"
+        assert stream.closed
 
     asyncio.run(_run())
 
 
-def test_execute_request_with_retries_content_length_limit() -> None:
+# 3. Content-Length over limit
+def test_3_content_length_over() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
-        with (
-            patch.object(
-                client,
-                "stream",
-                return_value=MockStreamResponse(200, {"Content-Length": "2000"}, b"x"),
-            ),
-            pytest.raises(ResponseTooLargeError, match="exceeds limit 1000"),
-        ):
-            await execute_request_with_retries(
-                client=client,
-                request_kwargs={"method": "POST", "url": "http://test"},
-                provider=ProviderKind.OLLAMA,
-                retry_limit=1,
-                max_response_bytes=1000,
-            )
+        stream = MockAsyncByteStream(b"123456")
 
-    asyncio.run(_run())
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, headers={"Content-Length": "6"}, stream=stream)
 
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
 
-def test_execute_request_with_retries_streaming_limit() -> None:
-    async def _run() -> None:
-        client = httpx.AsyncClient()
-        with (
-            patch.object(
-                client, "stream", return_value=MockStreamResponse(200, {}, b"123456")
-            ),
-            pytest.raises(ResponseTooLargeError, match="exceeded limit 5"),
-        ):
+        with pytest.raises(ResponseTooLargeError, match="exceeds limit 5"):
             await execute_request_with_retries(
                 client=client,
                 request_kwargs={"method": "POST", "url": "http://test"},
@@ -121,74 +96,393 @@ def test_execute_request_with_retries_streaming_limit() -> None:
                 retry_limit=1,
                 max_response_bytes=5,
             )
+        assert stream.closed
 
     asyncio.run(_run())
 
 
-def test_execute_request_with_retries_connect_error() -> None:
+# 4. Negative Content-Length
+def test_4_negative_content_length() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
+        stream = MockAsyncByteStream(b"data")
 
-        def raise_connect_error(*args: Any, **kwargs: Any) -> httpx.Response:
-            raise httpx.ConnectError("Connection failed")
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, headers={"Content-Length": "-1"}, stream=stream)
 
-        with patch.object(
-            client, "stream", side_effect=raise_connect_error
-        ) as mock_stream:
-            with pytest.raises(ProviderUnavailableError):
-                await execute_request_with_retries(
-                    client=client,
-                    request_kwargs={"method": "POST", "url": "http://test"},
-                    provider=ProviderKind.OLLAMA,
-                    retry_limit=1,
-                    max_response_bytes=1000,
-                )
-            assert mock_stream.call_count == 2
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderProtocolError, match="negative"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=100,
+            )
+        assert stream.closed
 
     asyncio.run(_run())
 
 
-def test_execute_request_with_retries_read_timeout() -> None:
+# 5. Non-numeric Content-Length
+def test_5_non_numeric_content_length() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
+        stream = MockAsyncByteStream(b"data")
 
-        def raise_read_timeout(*args: Any, **kwargs: Any) -> httpx.Response:
-            raise httpx.ReadTimeout("Read failed")
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, headers={"Content-Length": "abc"}, stream=stream)
 
-        with patch.object(
-            client, "stream", side_effect=raise_read_timeout
-        ) as mock_stream:
-            with pytest.raises(ProviderTimeoutError, match="Read timed out"):
-                await execute_request_with_retries(
-                    client=client,
-                    request_kwargs={"method": "POST", "url": "http://test"},
-                    provider=ProviderKind.OLLAMA,
-                    retry_limit=1,
-                    max_response_bytes=1000,
-                )
-            assert mock_stream.call_count == 1
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderProtocolError, match="non-numeric"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=100,
+            )
+        assert stream.closed
 
     asyncio.run(_run())
 
 
-def test_execute_request_with_retries_protocol_error() -> None:
+# 6. Chunked response exactly at limit
+def test_6_chunked_exact() -> None:
     async def _run() -> None:
-        client = httpx.AsyncClient()
+        stream = MockAsyncByteStream(b"12345", chunk_size=1)
 
-        def raise_protocol_error(*args: Any, **kwargs: Any) -> httpx.Response:
-            raise httpx.ProtocolError("Protocol error")
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=stream)
 
-        with patch.object(
-            client, "stream", side_effect=raise_protocol_error
-        ) as mock_stream:
-            with pytest.raises(ProviderProtocolError):
-                await execute_request_with_retries(
-                    client=client,
-                    request_kwargs={"method": "POST", "url": "http://test"},
-                    provider=ProviderKind.OLLAMA,
-                    retry_limit=1,
-                    max_response_bytes=1000,
-                )
-            assert mock_stream.call_count == 1
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        resp = await execute_request_with_retries(
+            client=client,
+            request_kwargs={"method": "POST", "url": "http://test"},
+            provider=ProviderKind.OLLAMA,
+            retry_limit=1,
+            max_response_bytes=5,
+        )
+        assert resp.content == b"12345"
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 7. Chunked response over limit
+def test_7_chunked_over() -> None:
+    async def _run() -> None:
+        stream = MockAsyncByteStream(b"123456", chunk_size=1)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ResponseTooLargeError, match="exceeded limit 5"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=5,
+            )
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 8. HTTP 300/301/307 without redirect following
+def test_8_http_3xx_no_redirect() -> None:
+    async def _run() -> None:
+        stream = MockAsyncByteStream(b"redirect")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(301, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderHttpError, match="HTTP 301"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=100,
+            )
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 9. HTTP 400 no retry
+def test_9_http_400() -> None:
+    async def _run() -> None:
+        calls = 0
+        stream = MockAsyncByteStream(b"bad request body error hidden secret")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(400, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderHttpError) as exc_info:
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=3,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+        assert "HTTP 400" in str(exc_info.value)
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 10. HTTP 500 no retry
+def test_10_http_500() -> None:
+    async def _run() -> None:
+        calls = 0
+        stream = MockAsyncByteStream(b"server error body")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(500, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderHttpError) as exc_info:
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=2,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+        assert "HTTP 500" in str(exc_info.value)
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 11. Error body never appears in exception text
+def test_11_error_body_hidden() -> None:
+    async def _run() -> None:
+        secret_body = b"SECRET_ERROR_PAYLOAD"
+        stream = MockAsyncByteStream(secret_body)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderHttpError) as exc_info:
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=100,
+            )
+        assert "SECRET_ERROR_PAYLOAD" not in str(exc_info.value)
+        assert stream.closed
+
+    asyncio.run(_run())
+
+
+# 12. ConnectError exact attempt count
+def test_12_connect_error_retries() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ConnectError("cannot connect")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderUnavailableError):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=3,
+                max_response_bytes=100,
+            )
+        assert calls == 4
+
+    asyncio.run(_run())
+
+
+# 13. ConnectTimeout exact attempt count
+def test_13_connect_timeout_retries() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ConnectTimeout("timeout")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderTimeoutError):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=2,
+                max_response_bytes=100,
+            )
+        assert calls == 3
+
+    asyncio.run(_run())
+
+
+# 14. ReadTimeout one attempt
+def test_14_read_timeout_no_retry() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ReadTimeout("read timeout")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderTimeoutError, match="Read timed out"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=5,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+
+    asyncio.run(_run())
+
+
+# 15. WriteTimeout one attempt
+def test_15_write_timeout_no_retry() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.WriteTimeout("write timeout")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderTimeoutError, match="Write timed out"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=5,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+
+    asyncio.run(_run())
+
+
+# 16. PoolTimeout one attempt
+def test_16_pool_timeout_no_retry() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.PoolTimeout("pool timeout")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderTimeoutError, match="Pool timed out"):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=5,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+
+    asyncio.run(_run())
+
+
+# 17. RemoteProtocolError one attempt
+def test_17_remote_protocol_error_no_retry() -> None:
+    async def _run() -> None:
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.RemoteProtocolError("protocol err")
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderProtocolError):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=5,
+                max_response_bytes=100,
+            )
+        assert calls == 1
+
+    asyncio.run(_run())
+
+
+# 18. Stream closes after success (Tested in test_1_successful_stream)
+# 19. Stream closes after response-size failure (Tested in test_3 and test_7)
+# 20. Stream closes after protocol failure (Tested in test_4, test_5)
+# Extra stream closure check
+def test_stream_closes_on_http_error() -> None:
+    async def _run() -> None:
+        stream = MockAsyncByteStream(b"bad")
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, stream=stream)
+
+        transport = httpx.MockTransport(handler)
+        client = httpx.AsyncClient(transport=transport)
+
+        with pytest.raises(ProviderHttpError):
+            await execute_request_with_retries(
+                client=client,
+                request_kwargs={"method": "POST", "url": "http://test"},
+                provider=ProviderKind.OLLAMA,
+                retry_limit=1,
+                max_response_bytes=100,
+            )
+        assert stream.closed
 
     asyncio.run(_run())

@@ -60,14 +60,20 @@ async def execute_request_with_retries(
                 if content_length_str:
                     try:
                         content_length = int(content_length_str)
+                        if content_length < 0:
+                            raise ProviderProtocolError(
+                                provider, "Content-Length cannot be negative."
+                            )
                         if content_length > max_response_bytes:
                             msg = (
                                 f"Response Content-Length {content_length} "
                                 f"exceeds limit {max_response_bytes} bytes."
                             )
                             raise ResponseTooLargeError(provider, msg)
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        raise ProviderProtocolError(
+                            provider, "Invalid non-numeric Content-Length header."
+                        ) from e
 
                 body = bytearray()
                 async for chunk in response.aiter_bytes():

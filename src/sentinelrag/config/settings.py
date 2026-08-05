@@ -85,15 +85,11 @@ class SentinelSettings(BaseSettings):
             if raw_host != "localhost":
                 try:
                     ip = ipaddress.ip_address(raw_host)
-                    if not ip.is_loopback:
-                        raise ValueError(
-                            f"Only loopback hosts are allowed. Rejected host: {host}"
-                        )
                 except ValueError as e:
-                    msg = (
-                        f"Only loopback hosts are allowed. Invalid host format: {host}"
-                    )
-                    raise ValueError(msg) from e
+                    raise ValueError("Endpoint host is invalid.") from e
+
+                if not ip.is_loopback:
+                    raise ValueError("Only loopback hosts are allowed.")
 
             if self.endpoint.username or self.endpoint.password:
                 raise ValueError("Credentials in URL are rejected.")
