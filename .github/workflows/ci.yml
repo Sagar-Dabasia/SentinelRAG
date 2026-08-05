@@ -58,9 +58,9 @@ jobs:
       - name: Confirm hooks made no tracked-file changes
         run: git diff --exit-code
 
-  phase1-compatibility:
+  phase1b-compatibility:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -76,8 +76,20 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Install compatibility dependencies
-        run: uv sync --locked --extra phase1-compat
+      - name: Install dependencies
+        run: uv sync --locked --group phase1b-compat
 
-      - name: Run compatibility check script
-        run: uv run --extra phase1-compat python scripts/verify_phase1_compatibility.py
+      - name: Ruff format check for verifier
+        run: uv run ruff format --check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py
+
+      - name: Ruff lint for verifier
+        run: uv run ruff check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py
+
+      - name: mypy for verifier
+        run: uv run mypy scripts tests
+
+      - name: Focused verifier tests
+        run: uv run pytest -q tests/unit/test_phase1b_compatibility_verifier.py
+
+      - name: The compatibility verifier
+        run: uv run --group phase1b-compat python scripts/verify_phase1b_compatibility.py

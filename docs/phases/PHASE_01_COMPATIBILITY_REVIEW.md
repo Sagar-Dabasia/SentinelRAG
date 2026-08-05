@@ -40,11 +40,13 @@ The following table lists the proposed direct dependencies for Phase 1.
 
 ## 4. Python Environment Probes
 
-* **Python 3.14 Compatibility Note:** Successfully verified using `uv sync --extra phase1-compat` on Python 3.14.
+* **Python 3.14 Compatibility Note:** The broad-stack experiment failed because testing the entire Phase 1 stack prematurely introduced blocking issues (e.g., `tokenizers` build failure on Python 3.14).
+* **Staged Verification:** To prevent premature full-stack blockages, the remaining ecosystem is deferred to just-in-time staged verification gates (1C, 1D, 1F).
 
 ## 5. Audit Results
 
-* **Dependency Viability:** VERIFIED.
+* **Phase 1B Dependencies:** VERIFIED. Pydantic 2.13.4, Pydantic Settings 2.14.2, HTTPX 0.28.1 were successfully imported without network access using `uv run --group phase1b-compat python scripts/verify_phase1b_compatibility.py`.
+* **Full Stack Verification:** DEFERRED to subphases.
 
 ## 6. Phase 1 Implementation Roadmap
 
