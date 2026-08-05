@@ -311,3 +311,139 @@ def test_ollama_closed_idempotent_and_rejects(settings: SentinelSettings) -> Non
             await adapter.check_availability()
 
     asyncio.run(_run())
+
+
+def test_ollama_generate_max_tokens_exceeded(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = OllamaAdapter(
+            settings, transport=httpx.MockTransport(lambda r: httpx.Response(200))
+        )
+        req = GenerationRequest(
+            messages=[ChatMessage(role=ChatRole.USER, content="H")], max_tokens=2048
+        )
+        settings.max_requested_output_tokens = 1024
+        with pytest.raises(ProviderProtocolError, match="exceed the maximum allowed"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_data_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Expected JSON object"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_message_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        content = {"model": "m", "message": "not dict", "done": True}
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Missing or invalid 'message'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_content_not_string(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        content = {
+            "model": "m",
+            "message": {"role": "assistant", "content": 123},
+            "done": True,
+        }
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="invalid 'message.content'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_generate_eval_count_invalid(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        content = {
+            "model": "m",
+            "message": {"role": "assistant", "content": "H"},
+            "done": True,
+            "eval_count": -1,
+        }
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Invalid 'eval_count'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_ollama_check_availability_invalid_json(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(200, content=b"{invalid")
+            ),
+        )
+        with pytest.raises(ProviderProtocolError, match="Invalid JSON"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_ollama_check_availability_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])),
+        )
+        with pytest.raises(ProviderProtocolError, match="Expected JSON object"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_ollama_check_availability_models_not_list(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(200, json={"models": "not list"})
+            ),
+        )
+        with pytest.raises(ProviderProtocolError, match="invalid 'models' list"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_ollama_check_availability_too_many_models(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        # ProviderAvailability enforces max 100 models,
+        # generating 101 will raise ValueError -> ProviderProtocolError
+        content = {"models": [{"name": f"model{i}"} for i in range(101)]}
+        adapter = OllamaAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        with pytest.raises(
+            ProviderProtocolError, match="Failed to construct ProviderAvailability"
+        ):
+            await adapter.check_availability()
+
+    asyncio.run(_run())

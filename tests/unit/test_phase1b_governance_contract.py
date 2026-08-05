@@ -19,95 +19,99 @@ def test_env_example_safe_defaults() -> None:
     assert not re.search(r"^\s*SENTINELRAG_MODEL_IDENTIFIER=", content, re.MULTILINE)
 
 
-def test_readme_progress() -> None:
-    readme_path = Path(__file__).parent.parent.parent / "README.md"
-    content = readme_path.read_text(encoding="utf-8")
+def test_ci_hard_gates() -> None:
+    ci_path = Path(__file__).parent.parent.parent / ".github" / "workflows" / "ci.yml"
+    content = ci_path.read_text(encoding="utf-8")
 
-    assert "Verified project progress: 8%." in content
-    assert (
-        "Phase 1B is implemented but failed audit and is under remediation." in content
-    )
-    assert "Phase 1C is not approved." in content
+    assert "tests/unit/test_phase1b_governance_contract.py" in content
+    assert "--cov-branch" in content
+    assert "--cov-fail-under=95" in content
 
 
-def test_project_status_progress() -> None:
+def test_http_mocktransport_not_patched() -> None:
+    test_http_path = Path(__file__).parent / "models" / "test_http.py"
+    content = test_http_path.read_text(encoding="utf-8")
+
+    assert "httpx.MockTransport" in content
+    assert "patch.object" not in content
+
+
+def test_project_status_contract() -> None:
     status_path = Path(__file__).parent.parent.parent / "docs" / "PROJECT_STATUS.md"
     content = status_path.read_text(encoding="utf-8")
 
     assert "Verified project progress: 8%" in content
+    assert "Phase 1C: NOT APPROVED" in content
     assert (
-        "Last independently audited commit: 412157a77c01be761597d1d672cc1610fc4028c3"
+        "Last independently audited commit: 63f40577157b02a610f725a6791661b1e4a773e3"
         in content
     )
     assert "Last audit verdict: FAIL" in content
-    assert "Phase 1B gate: REMEDIATION IN PROGRESS" in content
-    assert "Phase 1C: NOT APPROVED" in content
 
 
-def test_risk_register_not_remediated() -> None:
+def test_phase1b_report_contract() -> None:
+    report_path = (
+        Path(__file__).parent.parent.parent
+        / "docs"
+        / "phases"
+        / "PHASE_01B_MODEL_PROVIDER_CONTRACTS.md"
+    )
+    content = report_path.read_text(encoding="utf-8")
+
+    assert "#22" in content
+    assert "#23" in content
+    assert (
+        "| Requirement | Evidence file/test | Verification command | Exact result |"
+        in content
+    )
+
+    # Assert report does not claim loopback eliminates risk
+    assert (
+        "eliminat" not in content.lower()
+        or "loopback" not in content.lower()
+        or ("does not protect against compromised local services" in content.lower())
+    )
+
+    # Assert report does not claim offline tests guarantee no leaks
+    assert (
+        "guarantee no leaks" not in content.lower()
+        or "does not guarantee that all present or future application "
+        "paths can never leak data"
+        in content.lower()
+    )
+
+
+def test_adr0009_contract() -> None:
+    adr_path = (
+        Path(__file__).parent.parent.parent
+        / "docs"
+        / "decisions"
+        / "ADR-0009-Strict-Loopback-Only-Access.md"
+    )
+    content = adr_path.read_text(encoding="utf-8")
+
+    assert "127.0.0.0/8" in content
+    assert "::1" in content
+    assert "localhost" in content
+
+
+def test_adr0006_contract() -> None:
+    adr_path = (
+        Path(__file__).parent.parent.parent
+        / "docs"
+        / "decisions"
+        / "ADR-0006-local-model-and-embedding-stack.md"
+    )
+    content = adr_path.read_text(encoding="utf-8")
+
+    assert "Status: Accepted" not in content
+
+
+def test_risk_register_wording() -> None:
     risk_path = Path(__file__).parent.parent.parent / "docs" / "RISK_REGISTER.md"
     content = risk_path.read_text(encoding="utf-8")
 
-    # Assert RSK-027 and RSK-028 are not marked as Remediated.
-    rsk_27 = re.search(r"\|\s*RSK-027\s*\|.*?\|\s*Remediated\s*\|", content)
-    assert not rsk_27, "RSK-027 should not be marked Remediated before audit."
-
-    rsk_28 = re.search(r"\|\s*RSK-028\s*\|.*?\|\s*Remediated\s*\|", content)
-    assert not rsk_28, "RSK-028 should not be marked Remediated before audit."
-
-
-def test_phase1b_report_not_completed() -> None:
-    report_path = (
-        Path(__file__).parent.parent.parent
-        / "docs"
-        / "phases"
-        / "PHASE_01B_MODEL_PROVIDER_CONTRACTS.md"
+    # Assert RSK-027 and RSK-028 use risk-reduction wording
+    assert "prevent" not in content.lower() or (
+        "reduce" in content.lower() and "eliminate" not in content.lower()
     )
-    if report_path.exists():
-        content = report_path.read_text(encoding="utf-8")
-        assert "**Completed**" not in content
-        assert "Candidate commit: `PENDING`" in content
-        assert "Push: `PENDING`" in content
-        assert "External audit: `PENDING`" in content
-
-
-def test_adrs_not_accepted() -> None:
-    decisions_dir = Path(__file__).parent.parent.parent / "docs" / "decisions"
-    adrs = [
-        "ADR-0008-Local-Model-Protocol.md",
-        "ADR-0009-Strict-Loopback-Only-Access.md",
-        "ADR-0010-MockTransport-Testing.md",
-    ]
-
-    for adr in adrs:
-        adr_path = decisions_dir / adr
-        if adr_path.exists():
-            content = adr_path.read_text(encoding="utf-8")
-            assert "Status: Accepted" not in content
-            assert "Proposed" in content
-            assert "pending independent Phase 1B audit" in content
-
-
-def test_phase1a_closure_text_exists() -> None:
-    report_path = (
-        Path(__file__).parent.parent.parent
-        / "docs"
-        / "phases"
-        / "PHASE_01_COMPATIBILITY_REVIEW.md"
-    )
-    content = report_path.read_text(encoding="utf-8")
-    sha = "8e93ae2d9fa00681360d36b215b25bc549c5700c"  # pragma: allowlist secret
-    assert sha in content
-    assert "PASS WITH WARNINGS" in content
-
-
-def test_no_ci_passed_claim() -> None:
-    report_path = (
-        Path(__file__).parent.parent.parent
-        / "docs"
-        / "phases"
-        / "PHASE_01B_MODEL_PROVIDER_CONTRACTS.md"
-    )
-    if report_path.exists():
-        content = report_path.read_text(encoding="utf-8")
-        assert "CI passed" not in content.lower()

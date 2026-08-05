@@ -6,6 +6,7 @@ from sentinelrag.models.contracts import (
     ChatMessage,
     ChatRole,
     GenerationRequest,
+    InvalidProviderConfigurationError,
     NormalizedResponse,
     ProviderAvailability,
 )
@@ -154,3 +155,15 @@ def test_normalized_response_token_types() -> None:
         prompt_token_count=10,
     )
     assert nr.prompt_token_count == 10
+
+
+def test_invalid_provider_configuration_error() -> None:
+    err = InvalidProviderConfigurationError(
+        ProviderKind.OLLAMA, "Invalid config message"
+    )
+    assert err.provider == ProviderKind.OLLAMA
+    assert err.category == "invalid_config"
+    assert err.message == "Invalid config message"
+    assert err.retryable is False
+    assert err.http_status is None
+    assert str(err) == "[ollama] invalid_config: Invalid config message"

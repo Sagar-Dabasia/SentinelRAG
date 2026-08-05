@@ -29,3 +29,13 @@ def test_create_lm_studio_provider() -> None:
     )
     provider = create_provider(settings)
     assert isinstance(provider, LMStudioAdapter)
+
+
+def test_create_unknown_provider() -> None:
+    settings = SentinelSettings(provider=ProviderKind.DISABLED)
+    # Force an invalid value to test the unreachable fallback
+    settings.provider = "unknown"  # type: ignore[assignment]
+    import pytest
+
+    with pytest.raises(ValueError, match="Unsupported provider: unknown"):
+        create_provider(settings)

@@ -82,38 +82,55 @@ Agent ignored the explicit rule to only push verifiable, compliant state and fai
 * Reconstructed content validated against `max_response_characters`.
 * Request capped at `max_requested_output_tokens`.
 
-## 15. Test matrix
-* `httpx.MockTransport` offline tests.
-* Configuration edge cases.
-* Provider serialization, lifecycle (`aclose()`), validation, limits, retries.
-* SentinelRAG governance constraints.
+## 15. Security implications
+> Loopback validation reduces exposure to non-local endpoints. It does not protect against compromised local services or future policy changes.
 
-## 16. Coverage
-* 100% config coverage.
-* 100% models coverage.
-* >80% overall repository branch coverage.
+> MockTransport tests prove that the tested paths do not intentionally contact a real provider. They do not guarantee that all present or future application paths can never leak data.
 
-## 17. Exact verification commands and exit codes
-* `uv run ruff check .` - 0
-* `uv run ruff format --check .` - 0
-* `uv run mypy src tests scripts` - 0
-* `uv run pytest -q` - 0
-* `uv run python scripts/verify_phase1b_compatibility.py` - 0
-
-## 18. Security implications
-* Model interactions are restricted to the local loopback interface, eliminating unauthorized remote queries.
-* Strict validation limits minimize prompt injection size effects and memory exhaustion (DoS).
-* Offline testing guarantees no leaks.
-
-## 19. Limitations
+## 16. Limitations
 * This phase only establishes the client protocol. RAG architecture is still missing.
 * Token count validation is purely dependent on provider feedback.
 
-## 20. Requirements-to-evidence matrix
-* Contracts Implemented? Yes (`sentinelrag.models`).
-* Validation Constraints Enforced? Yes (`sentinelrag.config`).
-* Tests Pass Offline? Yes (`httpx.MockTransport`).
+## 17. Independent Audit: Commit a1aa3cbf8501ec9fa75b81a41542934389091187
 
-## 21. Candidate commit: `PENDING`
-## 22. Push: `PENDING`
-## 23. External audit: `PENDING`
+* Parent `412157a77c01be761597d1d672cc1610fc4028c3`
+* 27 files changed
+* 544 additions, 442 deletions
+* CI run `#22`
+* Main test failed at pre-commit
+* Focused contracts job passed
+* Verdict `FAIL`
+
+## 18. Independent Audit: Commit 63f40577157b02a610f725a6791661b1e4a773e3
+
+* Parent `a1aa3cbf8501ec9fa75b81a41542934389091187`
+* 14 files changed
+* 1,018 additions, 239 deletions
+* CI run `#23`
+* Main test passed
+* Focused contracts job passed
+* Overall CI passed
+* External audit verdict `FAIL`
+* Reason: required CI coverage, governance enforcement and evidence corrections were omitted
+
+## 19. Requirements-to-evidence matrix
+
+| Requirement | Evidence file/test | Verification command | Exact result |
+| ----------- | ------------------ | -------------------- | ------------ |
+| MockTransport use | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 (tests fail due to coverage/progress checks) |
+| No patched HTTPX streaming methods | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| 95% focused branch coverage | `tests/unit/models`, `tests/unit/config` | `uv run pytest -q tests/unit/config tests/unit/models --cov=sentinelrag.config --cov=sentinelrag.models --cov-branch --cov-report=term-missing --cov-fail-under=95` | Exit code 1, 91.07% coverage |
+| 80% repository coverage | `tests/unit` | `uv run pytest -q --cov=sentinelrag --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80` | Exit code 1, 91.09% coverage |
+| Ruff | `.github/workflows/ci.yml` | `uv run ruff check .` | Exit code 0 |
+| mypy | `.github/workflows/ci.yml` | `uv run mypy src tests scripts` | Exit code 0 |
+| pip-audit | `.github/workflows/ci.yml` | `uv run pip-audit` | Exit code 0 |
+| pre-commit | `.pre-commit-config.yaml` | `uv run pre-commit run --all-files --verbose` | Exit code 0 |
+| Governance test | `tests/unit/test_phase1b_governance_contract.py` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| CI workflow enforcement | `.github/workflows/ci.yml` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| Safe endpoint documentation | `ADR-0009-Strict-Loopback-Only-Access.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| Phase 1C lock | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+| 8% progress | `docs/PROJECT_STATUS.md` | `uv run pytest -q tests/unit/test_phase1b_governance_contract.py` | Exit code 1 |
+
+Candidate commit: PENDING
+Push: PENDING
+External audit: PENDING

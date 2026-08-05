@@ -80,16 +80,19 @@ jobs:
         run: uv sync --locked --all-groups
 
       - name: Ruff format check for verifier and contracts
-        run: uv run ruff format --check src/sentinelrag/config src/sentinelrag/models scripts/verify_phase1b_compatibility.py tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
+        run: uv run ruff format --check src/sentinelrag/config src/sentinelrag/models scripts/verify_phase1b_compatibility.py tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py tests/unit/test_phase1b_governance_contract.py
 
       - name: Ruff lint for verifier and contracts
-        run: uv run ruff check src/sentinelrag/config src/sentinelrag/models scripts/verify_phase1b_compatibility.py tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
+        run: uv run ruff check src/sentinelrag/config src/sentinelrag/models scripts/verify_phase1b_compatibility.py tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py tests/unit/test_phase1b_governance_contract.py
 
       - name: mypy for verifier and contracts
         run: uv run mypy src tests scripts
 
       - name: Focused verifier and contract tests
-        run: uv run pytest -q tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
+        run: uv run pytest -q tests/unit/config tests/unit/models tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py tests/unit/test_phase1b_governance_contract.py
+
+      - name: Focused coverage gate
+        run: uv run pytest -q tests/unit/config tests/unit/models --cov=sentinelrag.config --cov=sentinelrag.models --cov-branch --cov-report=term-missing --cov-fail-under=95
 
       - name: The compatibility verifier
         run: uv run python scripts/verify_phase1b_compatibility.py

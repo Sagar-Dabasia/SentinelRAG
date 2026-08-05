@@ -227,3 +227,29 @@ def test_misspelled_environment_variable_ignored() -> None:
         settings = SentinelSettings()
         assert not hasattr(settings, "typo_setting")
         assert not hasattr(settings, "SENTINELRAG_TYPO_SETTING")
+
+
+def test_endpoint_missing_host() -> None:
+    settings = SentinelSettings(
+        provider=ProviderKind.OLLAMA,
+        endpoint="http://127.0.0.1/api",  # type: ignore[arg-type]
+        model_identifier="test",
+    )
+
+    class MockUrl:
+        host = ""
+        scheme = "http"
+        path = "/api"
+
+    settings.endpoint = MockUrl()  # type: ignore[assignment]
+    with pytest.raises(ValueError, match="Endpoint host is missing."):
+        settings.validate_provider_requirements()  # type: ignore[operator]
+
+
+def test_endpoint_invalid_scheme() -> None:
+    with pytest.raises(ValidationError, match="Only http is accepted"):
+        SentinelSettings(
+            provider=ProviderKind.OLLAMA,
+            endpoint="https://127.0.0.1/api",  # type: ignore[arg-type]
+            model_identifier="test",
+        )

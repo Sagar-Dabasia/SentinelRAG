@@ -344,3 +344,162 @@ def test_lm_studio_closed_idempotent_and_rejects(settings: SentinelSettings) -> 
             await adapter.check_availability()
 
     asyncio.run(_run())
+
+
+def test_lm_studio_generate_max_tokens_exceeded(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = LMStudioAdapter(
+            settings, transport=httpx.MockTransport(lambda r: httpx.Response(200))
+        )
+        req = GenerationRequest(
+            messages=[ChatMessage(role=ChatRole.USER, content="H")], max_tokens=2048
+        )
+        settings.max_requested_output_tokens = 1024
+        with pytest.raises(ProviderProtocolError, match="exceed the maximum allowed"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_generate_data_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Expected JSON object"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_generate_message_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        content = {"model": "m", "choices": [{"message": "not dict"}]}
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Missing or invalid 'message'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_generate_content_not_string(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        content = {
+            "model": "m",
+            "choices": [{"message": {"role": "assistant", "content": 123}}],
+        }
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="invalid 'message.content'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_generate_finish_reason_not_string(
+    settings: SentinelSettings,
+) -> None:
+    async def _run() -> None:
+        content = {
+            "model": "m",
+            "choices": [
+                {"message": {"role": "assistant", "content": "H"}, "finish_reason": 123}
+            ],
+        }
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Invalid 'finish_reason'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_generate_completion_tokens_invalid(
+    settings: SentinelSettings,
+) -> None:
+    async def _run() -> None:
+        content = {
+            "model": "m",
+            "choices": [{"message": {"role": "assistant", "content": "H"}}],
+            "usage": {"completion_tokens": -1},
+        }
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        req = GenerationRequest(messages=[ChatMessage(role=ChatRole.USER, content="H")])
+        with pytest.raises(ProviderProtocolError, match="Invalid 'completion_tokens'"):
+            await adapter.generate(req)
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_check_availability_invalid_json(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(200, content=b"{invalid")
+            ),
+        )
+        with pytest.raises(ProviderProtocolError, match="Invalid JSON"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_check_availability_not_dict(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=[])),
+        )
+        with pytest.raises(ProviderProtocolError, match="Expected JSON object"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_check_availability_data_not_list(settings: SentinelSettings) -> None:
+    async def _run() -> None:
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(200, json={"data": "not list"})
+            ),
+        )
+        with pytest.raises(ProviderProtocolError, match="invalid 'data' list"):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
+
+
+def test_lm_studio_check_availability_too_many_models(
+    settings: SentinelSettings,
+) -> None:
+    async def _run() -> None:
+        # ProviderAvailability enforces max 100 models,
+        # generating 101 will raise ValueError -> ProviderProtocolError
+        content = {"data": [{"id": f"model{i}"} for i in range(101)]}
+        adapter = LMStudioAdapter(
+            settings,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=content)),
+        )
+        with pytest.raises(
+            ProviderProtocolError, match="Failed to construct ProviderAvailability"
+        ):
+            await adapter.check_availability()
+
+    asyncio.run(_run())
