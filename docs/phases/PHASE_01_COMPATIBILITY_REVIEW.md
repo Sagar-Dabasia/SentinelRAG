@@ -47,7 +47,7 @@ PostgreSQL, `pgvector`, SQLAlchemy, Alembic, and `psycopg` versions, digests, an
 `fastapi`, `uvicorn`, `python-multipart`, and `streamlit` validations are deferred to Phase 1F.
 
 ## Security implications
-Staged gates prevent dependency compromise during early phases. Network blocking ensures no telemetry on import.
+Staged gates reduce premature dependency exposure and isolate compatibility failures. They do not prevent dependency compromise. Network blocking ensures no telemetry on import.
 
 ## Limitations
 FastAPI, Streamlit, and PyTorch compatibility with Python 3.14 is currently NOT VERIFIED. If future phases fail on 3.14, fallback to 3.13 may be required.
@@ -63,4 +63,38 @@ FastAPI, Streamlit, and PyTorch compatibility with Python 3.14 is currently NOT 
 | Staged Phase 1A report | `docs/phases/PHASE_01...` | `pytest tests/unit/test_phase1a_governance_contract.py` | Pass |
 | Phase 1B unapproved | `docs/PROJECT_STATUS.md` | `pytest tests/unit/test_phase1a_governance_contract.py` | Pass |
 
+## Local verification evidence for remediation
+
+| Command | Exit code | Result |
+|---|---|---|
+| `uv lock --check` | 0 | Checked 61 packages |
+| `uv sync --locked --all-groups` | 0 | Resolved 61 packages |
+| `uv sync --locked --group phase1b-compat` | 0 | Resolved 61 packages |
+| `uv run ruff format --check .` | 0 | 32 files already formatted |
+| `uv run ruff check .` | 0 | All checks passed! |
+| `uv run mypy src tests scripts` | 0 | Success: no issues found in 6 source files |
+| `uv run pytest -q tests/unit/test_phase1a_governance_contract.py` | 0 | 6 passed |
+| `uv run pytest -q tests/unit/test_phase1b_compatibility_verifier.py` | 0 | 18 passed |
+| `uv run pytest -q` | 0 | 27 passed |
+| `uv run pytest -q --cov...` | 0 | Total coverage: 100.00% |
+| `uv run --group phase1b-compat python scripts/verify_phase1b_compatibility.py` | 0 | Final PASSED |
+| `uv run pip-audit` | 0 | No known vulnerabilities found |
+| `uv run pre-commit run --all-files` | 0 | Passed |
+
+## Independent audit of d8cd729
+* Full commit SHA: d8cd729cc423cf204c101662f3d2b053c2776547
+* Parent SHA: f6b2cf1724d811e8d1183bb89aaf4a68340fec64
+* Changed files: 11
+* Additions: 544
+* Deletions: 406
+* GitHub Actions run: #18
+* Main test job: FAILURE
+* Failure step: Ruff formatting
+* Phase 1B compatibility job: SUCCESS
+* Audit verdict: FAIL
+* Progress remains 8%
+* Phase 1B remains not approved
+
+## Candidate commit: PENDING
+## Push: PENDING
 ## External audit: PENDING

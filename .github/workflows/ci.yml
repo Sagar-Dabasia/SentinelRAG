@@ -80,16 +80,16 @@ jobs:
         run: uv sync --locked --group phase1b-compat
 
       - name: Ruff format check for verifier
-        run: uv run ruff format --check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py
+        run: uv run ruff format --check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
 
       - name: Ruff lint for verifier
-        run: uv run ruff check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py
+        run: uv run ruff check scripts/verify_phase1b_compatibility.py tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
 
       - name: mypy for verifier
         run: uv run mypy scripts tests
 
       - name: Focused verifier tests
-        run: uv run pytest -q tests/unit/test_phase1b_compatibility_verifier.py
+        run: uv run pytest -q tests/unit/test_phase1b_compatibility_verifier.py tests/unit/test_phase1a_governance_contract.py
 
       - name: The compatibility verifier
         run: uv run --group phase1b-compat python scripts/verify_phase1b_compatibility.py

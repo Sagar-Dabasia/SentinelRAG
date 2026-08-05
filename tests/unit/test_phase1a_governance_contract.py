@@ -12,19 +12,26 @@ def test_python_contract() -> None:
 def test_project_status_contract() -> None:
     status = Path("docs/PROJECT_STATUS.md").read_text()
     assert (
-        "Current activity: Phase 1A staged compatibility closure pending external audit"
+        "Current activity: Phase 1A CI and evidence closure pending external audit"
         in status
     )
     assert "Phase 1 implementation status: NOT STARTED" in status
     assert (
-        "Last independently audited commit: 0be9e4cb6b0ff500381e0f14f7431187b7b7319e"
+        "Last independently audited commit: d8cd729cc423cf204c101662f3d2b053c2776547"
         in status
     )
     assert "Last audit verdict: FAIL" in status
     assert "Phase 1A gate: REMEDIATION IN PROGRESS" in status
     assert "Verified project progress: 8%" in status
     assert "Phase 1B: NOT APPROVED" in status
-    assert "Next action: independent remote audit" in status
+    assert (
+        "Next action: independent remote audit of the Phase 1A closure commit" in status
+    )
+
+    open_risks_line = [
+        line for line in status.splitlines() if line.startswith("Open risks:")
+    ][0]
+    assert "RSK-026" in open_risks_line
 
 
 def test_risk_register_contract() -> None:
@@ -35,7 +42,10 @@ def test_risk_register_contract() -> None:
     )
     assert rsk022 is not None, "RSK-022 does not have High, High, High"
 
-    assert " trust_remote_code=False" in register or "Enforce trust_remote_code=False" in register
+    assert (
+        " trust_remote_code=False" in register
+        or "Enforce trust_remote_code=False" in register
+    )
     assert " rust_remote_code" not in register
     assert "\trust_remote_code" not in register
 
@@ -58,11 +68,15 @@ def test_adr0007_contract() -> None:
     t1_p1 = "authorization, scoped relational/vector queries, "
     t1_p2 = "citation authorization, revocation/deletion and cross-user negative tests"
     t1 = t1_p1 + t1_p2
-    
-    t2_p1 = "authorization, scoped relational and vector queries, citation authorization, "
-    t2_p2 = "deletion and revocation enforcement, guessed-identifier tests and cross-user canary tests"
+
+    t2_p1 = (
+        "authorization, scoped relational and vector queries, citation authorization, "
+    )
+    t2_p2_a = "deletion and revocation enforcement, guessed-identifier tests "
+    t2_p2_b = "and cross-user canary tests"
+    t2_p2 = t2_p2_a + t2_p2_b
     t2 = t2_p1 + t2_p2
-    
+
     assert t1 in adr.lower() or t2 in adr.lower()
 
 
@@ -95,3 +109,14 @@ def test_compatibility_report_contract() -> None:
     ]
     for claim in false_claims:
         assert claim not in report, f"Contains false claim: {claim}"
+
+
+def test_no_false_claims_in_documents() -> None:
+    for doc_path in [
+        "docs/PROJECT_STATUS.md",
+        "docs/phases/PHASE_01_COMPATIBILITY_REVIEW.md",
+    ]:
+        text = Path(doc_path).read_text().lower()
+        assert "phase 1b is approved" not in text
+        assert "phase 1b approved" not in text
+        assert "github ci passed" not in text
