@@ -2,8 +2,14 @@
 
 SentinelRAG is an open-source research prototype and portfolio project aimed at systematically understanding and mitigating security vulnerabilities in Retrieval-Augmented Generation (RAG) applications.
 
-Currently, this repository is in **Phase 0 (Foundation only)**.
-**Explicit Statement:** No RAG application, database, API, model integration, or UI exists yet.
+Phase 0 — Repository and governance foundation is complete.
+
+Independent audit verdict: PASS WITH WARNINGS.
+Verified project progress: 8%.
+
+Phase 1 — Core local RAG baseline is next but has not started.
+
+**Explicit Statement:** No RAG application, database, API, model integration, authentication system, vector index, or UI exists yet.
 
 ## Planned Capabilities
 In future phases, the project plans to include:
@@ -53,7 +59,7 @@ uv run pre-commit run --all-files
 ```
 
 ## Repository Structure
-Currently contains only the Phase 0 foundational files.
+The repository currently contains the completed Phase 0 governance, documentation, development-tooling, CI, and minimal package foundation. Phase 1 application implementation has not started.
 For planned architecture, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Documentation Index
