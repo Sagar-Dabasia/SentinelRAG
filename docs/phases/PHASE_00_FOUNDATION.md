@@ -228,6 +228,49 @@ The third remediation commit (7d1129cc0f93f593c76c3e8d8e102170763c56e3) was inde
 * **Remaining Node.js warning:** Preserved as a known deferred maintenance risk in RSK-021.
 
 ## Status (Fourth Remediation)
+* **Commit hash:** d1efdf89c83cb265bb8162d62cd41fb21ca6b316
+* **Push status:** YES
+* **Remote audit:** FAIL
+
+## Independent Remote Audit Findings (Fifth Audit)
+The fourth remediation commit (`d1efdf89c83cb265bb8162d62cd41fb21ca6b316`) was independently audited.
+* **CI result:** success
+* **Audit verdict:** FAIL
+
+**Findings:**
+* **Architecture-roadmap contradiction:** The architecture components were not aligned with the approved phase roadmap (e.g. baseline ingestion vs later secure expansion).
+* **Implicit authorization finding:** The parsing and chunking data flow described authorization as implicit rather than strictly using an explicit authorized job context.
+* **User-supplied-chunks flow finding:** The generation flow incorrectly implied that the user supplies trusted retrieval chunks, rather than the server securely supplying them.
+* **Malformed Mermaid finding:** The architectural diagrams used malformed single-backtick Mermaid blocks instead of proper fenced syntax, breaking the documentation rendering.
+* **Agent wording finding:** The `AGENTS.md` wording claimed the system "is built" instead of clarifying that it is the approved planned architecture, and omitted critical explicit verification rules.
+* **Charter scope finding:** The project charter did not clearly and comprehensively state the complete end goals, intended users, and scope.
+* **Risk mitigation finding:** The cross-user leakage risk (`RSK-003`) mitigation wrongly relied primarily on synthetic data limitations rather than technical server-side authorization controls.
+
+## Fifth Remediation Evidence
+
+### Exact Files Changed
+* `AGENTS.md`
+* `docs/ARCHITECTURE.md`
+* `docs/PROJECT_CHARTER.md`
+* `docs/RISK_REGISTER.md`
+* `docs/PROJECT_STATUS.md`
+* `docs/phases/PHASE_00_FOUNDATION.md`
+
+### Exact Verification Commands and Results
+* `uv lock --check` (Exit code: 0)
+* `uv sync --locked --all-groups` (Exit code: 0)
+* `uv run ruff format --check .` (Exit code: 0)
+* `uv run ruff check .` (Exit code: 0)
+* `uv run mypy src tests` (Exit code: 0)
+* `uv run pytest -q` (Exit code: 0)
+* `uv run pytest -q --cov=sentinelrag --cov-report=term-missing --cov-report=xml --cov-fail-under=80` (Exit code: 0)
+* `uv run pip-audit` (Exit code: 0)
+* `uv run pre-commit run --all-files` (Exit code: 0)
+* `git diff --check` (Exit code: 0)
+* `git diff --stat` (Exit code: 0)
+* `git status --short` (Exit code: 0)
+
+## Status (Fifth Remediation)
 * **Candidate commit:** PENDING
 * **Push:** PENDING
 * **External audit:** PENDING

@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | RSK-001 | Scope creep | Project | High | Medium | High | Strict adherence to Phase definitions and explicit non-goals. | Project maintainer | Open | - |
 | RSK-002 | False security claims | Security | Low | High | High | Use "PLANNED" and "NOT VERIFIED" statuses. Honest prototype positioning. | Project maintainer | Open | - |
-| RSK-003 | Cross-user data leakage in later phases | Security | Medium | High | High | Strict data policy, synthetic data only, no real users. | Project maintainer | Open | - |
+| RSK-003 | Cross-user data leakage in later phases | Security | Medium | High | High | Centralized server-side authorization, tenant-scoped relational and vector queries, citation authorization, deletion/revocation enforcement, synthetic tenant-specific canaries, guessed-identifier negative tests, cross-user retrieval regression tests, and zero successful maintained leakage cases as a gate. Synthetic-only data acts as impact limitation, not primary mitigation. | Project maintainer | Open | - |
 | RSK-004 | Prompt injection | Security | High | High | High | Layered mitigations to be implemented and evaluated in later phases. | Project maintainer | Open | - |
 | RSK-005 | Unsafe ingestion | Security | Medium | High | High | Input validation and format restriction during data loading (Planned). | Project maintainer | Open | - |
 | RSK-006 | Dependency compromise | Security | Low | High | Medium | Use `uv.lock`, dependabot, `pip-audit`, and pinned pre-commit hooks. | Project maintainer | Open | - |

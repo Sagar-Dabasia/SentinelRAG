@@ -9,7 +9,7 @@ SentinelRAG is a research prototype and portfolio project investigating RAG secu
 We are currently in **Phase 0**: Repository and governance foundation.
 
 ## Architecture Summary
-The system is built as a local modular monolith using FastAPI, PostgreSQL/pgvector, and Streamlit (as a research interface). Model inference runs in a distinct local process (e.g. Ollama).
+Phase 0 contains only repository governance, tooling, and the minimal package baseline. FastAPI, PostgreSQL/pgvector, Streamlit, and local model integration are the approved **planned architecture**. Agents must inspect the repository before assuming any planned component exists.
 
 ## Security Invariants
 * User identity is established before authorized operations.
@@ -28,6 +28,14 @@ The system is built as a local modular monolith using FastAPI, PostgreSQL/pgvect
 * Evaluation artifacts record provenance.
 * No external paid provider is enabled by default.
 * Controlled reduced-defence mode is disabled by default and isolated.
+
+
+## Architecture & Security Verification
+* Architecture and roadmap documents must be checked before assigning components to phases.
+* Planned components must never be described in present tense as implemented.
+* Security decisions may not be described as implicit.
+* Authorization context must be explicit and testable.
+* Phase-status and phase-report documents must be updated in every authorized phase-closing task.
 
 ## Data Restrictions
 * No real personal records, confidential employer or customer data, or real tenant secrets may be used. Synthetic or public data only.
