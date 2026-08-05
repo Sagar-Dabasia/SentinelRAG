@@ -271,6 +271,24 @@ The fourth remediation commit (`d1efdf89c83cb265bb8162d62cd41fb21ca6b316`) was i
 * `git status --short` (Exit code: 0)
 
 ## Status (Fifth Remediation)
-* **Candidate commit:** PENDING
-* **Push:** PENDING
-* **External audit:** PENDING
+* **Commit:** 13d343e2bb7faef4ac0910cf96b51054148c3c0f
+* **Push:** YES
+* **External audit:** PASS WITH WARNINGS
+
+## Independent Remote Audit — Phase 0 Closure
+* **Audited commit:** 13d343e2bb7faef4ac0910cf96b51054148c3c0f
+* **Parent:** d1efdf89c83cb265bb8162d62cd41fb21ca6b316
+* **Commit message:** docs: finalize Phase 0 architecture and charter
+* **Files changed:** 6
+* **Diff:** 223 additions, 121 deletions
+* **GitHub Actions run:** #10
+* **CI result:** SUCCESS
+* **CI duration:** 40 seconds
+* **Audit verdict:** PASS WITH WARNINGS
+* **Phase 0 gate:** PASSED WITH WARNINGS
+* **Verified progress after audit:** 8%
+
+**Warnings:**
+1. GitHub cannot independently verify local working-tree cleanliness.
+2. The Node.js action-runtime warning remains tracked as RSK-021.
+3. Exact authenticated CI console logs were not available to the independent auditor, although overall GitHub CI success was verified.

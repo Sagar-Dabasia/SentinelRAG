@@ -6,7 +6,10 @@ This document defines the rules and governance framework for AI coding assistant
 SentinelRAG is a research prototype and portfolio project investigating RAG security vulnerabilities and mitigations using a local-first modular monolith architecture.
 
 ## Current Phase
-We are currently in **Phase 0**: Repository and governance foundation.
+Phase 0 is complete.
+**Phase 1 — Core local RAG baseline** is next.
+
+Phase 1 implementation has not started. The current implemented state remains the minimal package, governance, and tooling foundation. Planned components must not be described as implemented.
 
 ## Architecture Summary
 Phase 0 contains only repository governance, tooling, and the minimal package baseline. FastAPI, PostgreSQL/pgvector, Streamlit, and local model integration are the approved **planned architecture**. Agents must inspect the repository before assuming any planned component exists.
