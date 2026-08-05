@@ -1,24 +1,48 @@
+import importlib.metadata
 import sys
+from collections.abc import Generator
+from unittest.mock import patch
 
-import sentinelrag
+import pytest
 
 
-def test_package_version_exists() -> None:
-    """Ensure the package exposes a version string."""
+@pytest.fixture(autouse=True)
+def clean_import() -> Generator[None]:
+    """Ensure sentinelrag is not cached in sys.modules for each test."""
+    if "sentinelrag" in sys.modules:
+        del sys.modules["sentinelrag"]
+    yield
+
+
+def test_package_version_consistency() -> None:
+    """Ensure the package version matches the installed distribution metadata."""
+    import sentinelrag  # noqa: F401
+
     assert hasattr(sentinelrag, "__version__")
-    assert isinstance(sentinelrag.__version__, str)
+
+    # Compare with installed distribution metadata
+    dist_version = importlib.metadata.version("sentinelrag")
+    assert sentinelrag.__version__ == dist_version
     assert sentinelrag.__version__ == "0.1.0"
 
 
 def test_no_network_access_on_import() -> None:
-    """Ensure the package import does not require network access or secrets."""
-    # This test simply passes because the import succeeded above without env vars.
-    # Further enforcement can be done dynamically if required.
+    """Ensure importing the package does not trigger network initialization."""
+    # Block socket creation to catch any network activity during import
+    err = RuntimeError("Forbidden network access during import")
+    with patch("socket.socket", side_effect=err):
+        import sentinelrag  # noqa: F401
+
     assert "sentinelrag" in sys.modules
 
 
-def test_no_environment_secrets_required() -> None:
-    """Ensure importing sentinelrag does not crash if secrets are missing."""
-    # The import is already done globally, proving it doesn't crash on import
-    # even when the environment is mostly empty.
-    assert True
+def test_no_environment_secrets_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure import does not crash if environment variables are absent."""
+    # Clear typical sentinelrag environment variables to test default safe state
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("PGPASSWORD", raising=False)
+
+    import sentinelrag  # noqa: F401
+
+    assert "sentinelrag" in sys.modules

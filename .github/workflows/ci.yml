@@ -19,11 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
 
-      # Install uv (astral-sh/setup-uv@v2)
+      # astral-sh/setup-uv@v3.2.4
       - name: Install uv
-        uses: astral-sh/setup-uv@164e29ebdf25cde185a034f71168971f1a5bbcb3
+        uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39
         with:
-          version: "latest"
+          version: "0.12.0"
 
       # actions/setup-python@v5.1.1
       - name: Set up Python
@@ -49,8 +49,8 @@ jobs:
       - name: Dependency Audit
         run: uv run pip-audit
 
-      - name: Secret Scan (detect-secrets)
-        run: uv run detect-secrets scan
+      - name: Pre-commit checks (including detect-secrets)
+        run: uv run pre-commit run --all-files
 
       - name: Check for uncommitted changes
         run: git diff --check
